@@ -1,4 +1,4 @@
-#!/proj/sot/ska3/test/bin/python
+#!/proj/sot/ska3/flight/bin/python
 import os
 import sys
 from datetime import datetime, timezone
