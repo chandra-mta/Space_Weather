@@ -38,6 +38,7 @@ def send_mail(content, subject, admin):
 
 
 def check_cadence():
+    """Reads the hrc_proxy.csv archive file to check if there is a delay in the calculation, likely due to missing data."""
     now = datetime.now(timezone.utc)
     out = subprocess.check_output(
         f"tail -n 1 {ARCHIVE_FILE}", shell=True, executable="/bin/csh"
