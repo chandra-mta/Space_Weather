@@ -1,25 +1,21 @@
 #!/proj/sot/ska3/flight/bin/python
+"""
+**update_goes_differential_page.py**: Update goes differential protons html page.
 
-#################################################################################
-#                                                                               #
-#       update_goes_differential_page.py: update goes differential html page    #
-#                                                                               #
-#           author: t. isobe (tisobe@cfa.harvard.edu)                           #
-#           last update: Oct 05, 2021                                           #
-#                                                                               #
-#################################################################################
+:Author: W. Aaron (william.aaron@cfa.harvard.edu)
+:Last Updated: Feb 18, 2025
 
+"""
 import os
 import signal
-import time
 import datetime
-import Chandra.Time
 import urllib.request
 import json
 import numpy as np
 import argparse
 import traceback
 import getpass
+from jinja2 import Environment, FileSystemLoader
 #
 #--- Define Directory Pathing
 #
@@ -27,26 +23,12 @@ GOES_DIR = '/data/mta4/Space_Weather/GOES'
 GOES_DATA_DIR = f"{GOES_DIR}/Data"
 GOES_TEMPLATE_DIR = f"{GOES_DIR}/Scripts/Template"
 HTML_GOES_DIR = '/data/mta4/www/RADIATION_new/GOES'
-
 ADMIN = ['mtadude@cfa.harvard.edu']
-
-#
-#--- json data locations proton and electron
-#
-PLINK = 'https://services.swpc.noaa.gov/json/goes/primary/differential-protons-1-day.json'
-#
-#--- protone energy designations and output file names
-#
-proton_list = ['1020-1860 keV',   '1900-2300 keV',   '2310-3340 keV',    '3400-6480 keV',\
+PLINK = 'https://services.swpc.noaa.gov/json/goes/primary/differential-protons-1-day.json' #: json proton data
+PROTON_LIST = ['1020-1860 keV',   '1900-2300 keV',   '2310-3340 keV',    '3400-6480 keV',\
                '5840-11000 keV',  '11640-23270 keV', '25900-38100 keV',  '40300-73400 keV',\
                '83700-98500 keV', '99900-118000 keV','115000-143000 keV','160000-242000 keV',\
-               '276000-404000 keV']
-#
-#--- current goes satellite #
-#
-satellite = "Primary"
-
-# GOES-16+ Energy bands (keV) and combinations
+               '276000-404000 keV'] #: proton energy designations
 DE = {'P1': [1860., 1020.],
       'P2A': [2300., 1900.],
       'P2B': [3340., 2310.],
@@ -61,66 +43,38 @@ DE = {'P1': [1860., 1020.],
       'P9': [242000., 160000.],
       'P5P6': [23270., 11640.],
       'P8ABC': [143000., 83700.],
-      'P8ABCP9': [242000., 83700.]}
-
-# Add delta_e to each list
+      'P8ABCP9': [242000., 83700.]
+} #: GOES-16+ Energy bands (keV) and combinations
 for key in DE.keys():
-    de = DE[key]
-    de.append(de[0] - de[1])
-
-#----------------------------------------------------------------------------
-#-- update_goes_differential_page: update goes differential html page      --
-#----------------------------------------------------------------------------
+    de = DE[key] 
+    de.append(de[0] - de[1]) #: Add delta_e to each list
+#
+# --- Template Globals
+#
+_TYPE = "Differential" #: String determining type of page.
+_JINJA_ENV = Environment(loader = FileSystemLoader('Template', followlinks = True))
 
 def update_goes_differential_page():
+    """Update goes differential proton html page
+    
+    :File Out: <html_dir>/GOES>/goes_pchan_p.html
+
     """
-    update goes differential html page
-    input: none but read from:
-            https://services.swpc.noaa.gov/json/goes/primary/differential-protons-1-day.json
-    output: <html_dir>/GOES>/goes_pchan_p.html
-    """
-#
-#--- read header template
-#
-    hfile = f"{GOES_TEMPLATE_DIR}/G_header"
-    with open(hfile, 'r') as f:
-        line = f.read()
-#
-#--- add the table
-#
-    line = line + '<pre>\n'
-    line = line + make_two_hour_table()
-    line = line + '</pre>\n'
-    #line = line + '<br />\n'
-#
-#--- add energy range note
-#
-    hfile = f"{GOES_TEMPLATE_DIR}/channel_energy_list"
-    with open(hfile, 'r') as f:
-        line = line + f.read()
-#
-#--- add the image link
-#
-    hfile = f"{GOES_TEMPLATE_DIR}/Gp_image_diff"
-    with open(hfile, 'r') as f:
-        line = line + f.read()
-#
-#--- add footer
-#
-    hfile = f"{GOES_TEMPLATE_DIR}/G_footer"
-    with open(hfile, 'r') as f:
-        line = line + f.read()
-#
-#--- update a couple of lines
-#
-    line = line.replace('#GNUM#', str(satellite))
-    line = line.replace('#SELECT#', 'Differential')
-#
-#--- update the page
-#
-    outfile = f"{HTML_GOES_DIR}/goes_pchan_p.html"
-    with open(outfile, 'w') as fo:
-        fo.write(line)
+
+    diff_table = make_two_hour_table() #: Add two hour table
+    #
+    # --- Pull and Render Jinja Template
+    #
+    event_template = _JINJA_ENV.get_template('goes_template.jinja')
+    render = event_template.render(type = _TYPE,
+                                   data_table = diff_table)
+    #
+    # --- Write template contents to a html file
+    #
+    html_file = f"{HTML_GOES_DIR}/goes_pchan_p.html"
+    os.makedirs(os.path.dirname(html_file), exist_ok=True)
+    with open(html_file, "w") as f:
+        f.write(render) #: Write out the html file
 
 #----------------------------------------------------------------------------
 #-- make_two_hour_table: create two hour table of goes proton/electron flux 
@@ -135,16 +89,12 @@ def make_two_hour_table():
 #
 #--- extract proton data
 #
-    p_data = extract_goes_data(PLINK, proton_list)
+    p_data = extract_goes_data(PLINK, PROTON_LIST)
 #
 #--- time list
 #
     t_list = p_data[0][0]
     d_len  = len(t_list)
-#
-#--- banch up the fluxes (definition of p values are different from the older ones)
-#
-    [p1, p2, p3, p4, p5, p6] = compute_p_vals(p_data)
 #
 #--- compute hrc proxy
 #
@@ -154,7 +104,7 @@ def make_two_hour_table():
 #---- create the main table
 #
     line = '\t' * 7
-    line = line + 'Most Recent GOES #GNUM# Observations\n'
+    line = line + 'Most Recent GOES Primary Observations\n'
     line = line + '\t' * 7 
     line = line + 'Proton Flux particles/cm2-s-ster-MeV\n\n'
     line = line + '\tTime\t\t\t'
@@ -173,9 +123,6 @@ def make_two_hour_table():
     line = line + 'P10\t'
     line = line + 'HRC_Proxy\t'
     line = line + 'HRC_Proxy_Legacy\n'
-#    line = line + '\tTime\t\t\t1.0-3.3MeV\t0.4-11MeV'
-#    line = line + '\t11-38MeV\t40-98MeV'
-#    line = line + '\t99-143MeV\t160-404MeV\tHRC Proxy\n'
     line = line + '\t' + '-'*150 +'\n'
 #
 #--- aline will save the text output of the table which is used by CRM
@@ -258,9 +205,6 @@ def make_two_hour_table():
 
     line = line +'\n'
     line = line + '\tHRC Proxy is defined as:\n\n'
-#    line = line + '\tHRC Proxy = 6000 * (11.64-38.1MeV) + 270000 * (40.3-73.4MeV) '
-#    line = line + '100000 * (83.7-242.0MeV)\n'
-#    line = line + '\tHRC Proxy  = 143 * P5 + 64738 * P6 + 162505 * P7 + 16\n'
     line = line + '\tHRC Proxy  = 143 * P5 + 64738 * P6 + 162505 * P7 + 4127\n\n'
 
     line = line + '\tHRC Proxy Legacy is defined as:\n\n'
@@ -274,10 +218,6 @@ def make_two_hour_table():
         fo.write(aline)
 
     return line
-
-#----------------------------------------------------------------------------
-#-- extract_goes_data: extract GOES satellite flux data                    --
-#----------------------------------------------------------------------------
 
 def extract_goes_data(dlink, energy_list):
     """
@@ -367,86 +307,6 @@ def extract_goes_data(dlink, energy_list):
                 d_save[i][1].append(-1e5)
     return d_save
 
-
-#----------------------------------------------------------------------------
-#-- compute_p_vals: create combined flux data for table displays           --
-#----------------------------------------------------------------------------
-
-def compute_p_vals(data):
-    """
-    create combined flux data for table displays
-    input:  data    --- a list of lists of data: [[<time>, <data1>], [<time>, <data2>],...]
-    output: a list of lists of:
-            p1 :  1.0MeV - 3.3MeV
-            p2 :  3.4MeV - 11MeV
-            p3 :  11MeV  - 38MeV
-            p4 :  40MeV  - 98MeV
-            p5 :  99MeV  - 143MeV
-            p6 :  160MeV - 404MeV
-    """
-#
-#--- extract flux data parts
-#
-    c0  = data[0][1]
-    c1  = data[1][1]
-    c2  = data[2][1]
-    c3  = data[3][1]
-    c4  = data[4][1]
-    c5  = data[5][1]
-    c6  = data[6][1]
-    c7  = data[7][1]
-    c8  = data[8][1]
-    c9  = data[9][1]
-    c10 = data[10][1]
-    c11 = data[11][1]
-    c12 = data[12][1]
-#
-#--- combine the data
-#
-    p1 = []             #--- c0 + c1 + c2:  1.0MeV - 3.3MeV
-    p2 = []             #--- c3 + c4:       3.4MeV - 11MeV
-    p3 = []             #--- c5 + c6:       11MeV  - 38MeV
-    p4 = []             #--- c7 + c8:       40MeV  - 98MeV
-    p5 = []             #--- c9 + c10;      99MeV  - 143MeV
-    p6 = []             #--- c11 + c12:     160MeV - 404MeV
-    for  k in range(0, len(c0)):
-        try:
-            val = (c0[k] *(1.85 - 1.02)  + c1[k] * (2.3 - 1.9) + c2[k]  * (3.3 - 2.3)) / (3.3 -1.0)
-            p1.append(val)
-        except:
-            continue
-        try:
-            val = (c3[k] * (6.48 - 3.4) + c4[k] * (11.0 - 5.84)) / (11 - 3.4)
-            p2.append(val)
-        except:
-            continue
-        try:
-            val = (c5[k] * (23.27-11.64) + c6[k] *(38.1 - 25.9)) / (38.1 - 11.64)
-            p3.append(val)
-        except:
-            continue
-        try:
-            val = (c7[k] * (73.4 - 40.3)+ c8[k] * (98.5 - 83.7)) / (98.5 - 40.3)
-            p4.append(val)
-        except:
-            continue
-        try:
-            val = (c9[k] * (118.0 - 99.9) + c10[k] * (143.0 - 115.0)) /( 115 - 99.9)
-            p5.append(val)
-        except:
-            continue
-        try:
-            val = (c11[k] * (242.0 - 160.0) + c12[k] * (404.0 - 276.0)) / (404. - 160.0)
-            p6.append(val)
-        except:
-            continue
-
-    return [p1, p2, p3, p4, p5, p6]
-
-#----------------------------------------------------------------------------
-#-- compute_hrc: compute hrc proxy value                                   --
-#----------------------------------------------------------------------------
-
 def compute_hrc(data):
     """
     compute hrc proxy value
@@ -475,33 +335,17 @@ def compute_hrc(data):
     c5  = data[5][1]
     c6  = data[6][1]
     c7  = data[7][1]
-    c8  = data[8][1]
-    c9  = data[9][1]
-    c10 = data[10][1]
-    c11 = data[11][1]
 
     hrc = []
 
     for k in range(0, len(c5)):
         try:
-#            val = 6000.0 *  (c5[k] * (23.27-11.64) + c6[k]* (38.1 - 25.9))/(38.1 - 11.64)\
-#                + 270000.0 * (c7[k])\
-#                + 100000.0 * (c8[k] *(98.5-83.7) + c9[k] * (118-99.9)\
-#                + c10[k]*(143.-115) + c11[k]*(242.-160.)) /(242.-83.7)
-#
-#--- after 2021:112:06:05:00
-#
-#            val = 143.0 * c5[k] + 64738.0 * c6[k] + 162505.0 * c7[k] + 16.1    #--- 16.1 = 4127.0 /256.0
-#
-#--- after 2021:125:06:05:00 
-#
-            val = 143.0 * c5[k] + 64738.0 * c6[k] + 162505.0 * c7[k] + 4127
+            val = 143.0 * c5[k] + 64738.0 * c6[k] + 162505.0 * c7[k] + 4127 #: After 2021:125:06:05:00 
             if c5[k] < 0 or c6[k] < 0 or c7[k] < 0:
-                #Missing a channel value
-                val = -1e5
+                val = -1e5 #: Missing a channel value
 
         except:
-            val = -1e5
+            val = -1e5 #: Missing a channel value
 
         hrc.append(val)
 
@@ -527,11 +371,9 @@ def compute_pre2020_hrc(data):
         try:
             val = 6000 * p5p6[k] + 270000 * p7[k] + 100000 * p8abc[k]
             if p5p6[k] < 0 or p7[k] < 0 or p8abc[k] < 0:
-                #Missing a channel value
-                val = -1e5
+                val = -1e5 #: Missing a channel value
         except:
-            val = -1e5
-        
+            val = -1e5 #: Missing a channel value
         hrc.append(val)
     return hrc
 
@@ -546,13 +388,9 @@ def combine_rates(data_list, channel_name):
     delta_e = DE[channel_name[-1]][0] - DE[channel_name[0]][1]
     final = list(combined / delta_e)
     for i in range(len(final)):
-        if final[i] < 0: #Computes with missing data value
+        if final[i] < 0: #: Prevent from computing with missing data value
             final[i] = -1e5
     return final
-#----------------------------------------------------------------------------
-#----------------------------------------------------------------------------
-#----------------------------------------------------------------------------
-
 def adjust_format(val):
 
     val = float(val)
@@ -597,14 +435,14 @@ if __name__ == "__main__":
 #
 #--- Redefine Admin for sending notification email in test mode
 #
-        if args.email != None:
+        if args.email is not None:
             ADMIN = args.email
         else:
             ADMIN = [os.popen(f"getent aliases | grep {getpass.getuser()}").read().split(":")[1].strip()]
 #
 #---Define pathing for test output
 #
-        OUT_DIR = f"{os.getcwd()}/test/outTest"
+        OUT_DIR = f"{os.getcwd()}/test/_outTest"
         os.makedirs(OUT_DIR, exist_ok = True)
         GOES_TEMPLATE_DIR = f"{os.getcwd()}/Template"
         if args.path:
@@ -612,7 +450,7 @@ if __name__ == "__main__":
             HTML_GOES_DIR = args.path
         else:
             GOES_DATA_DIR = OUT_DIR
-            HTML_GOES_DIR = OUT_DIR
+            HTML_GOES_DIR = f"{OUT_DIR}/GOES"
 
         if args.json:
             PLINK = args.json
