@@ -1,6 +1,6 @@
 #!/proj/sot/ska3/flight/bin/python
 """
-**update_goes_differential_page.py**: Update goes differential protons html page.
+**update_goes_html_page.py**: Update goes differential protons html page.
 
 :Author: W. Aaron (william.aaron@cfa.harvard.edu)
 :Last Updated: Feb 18, 2025
@@ -289,7 +289,6 @@ def make_intg_table():
             except:  # noqa: E722
                 continue
             line = line   +  out +"\t\t" 
-            #line = line   + "%1.5f\t\t" % (p_save[m][1][k]) 
             aline = aline + "%2.3e\t\t" % (p_save[m][1][k])
         line = line + '\n'
 #
