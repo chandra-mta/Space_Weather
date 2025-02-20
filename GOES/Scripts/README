@@ -13,34 +13,28 @@ Scripts:
 goes_wrap_script
 goes_main_script        --- environment setting scripts
 
-goes_long_warp_script   --- environment setting scripts for the long term data 
+goes_long_wrap_script   --- environment setting scripts for the long term data 
 goes_long_main_script
 
-update_goes_differential_page.py
+update_goes_html_page.py
 ---------------------------------
 Update: <web_dir>/goes_pchan_p.html
+        <web_dir>/goes_part_p.html
 
 input: https://services.swpc.noaa.gov/json/goes/primary/differential-protons-1-day.json
+       https://services.swpc.noaa.gov/json/goes/primary/integral-protons-1-day.json
+       https://services.swpc.noaa.gov/json/goes/primary/integral-electrons-1-day.json
 
 "energy"    = ['1020-1860 keV',   '1900-2300 keV',   '2310-3340 keV',    '3400-6480 keV',\
                '5840-11000 keV',  '11640-23270 keV', '25900-38100 keV',  '40300-73400 keV',\
                '83700-98500 keV', '99900-118000 keV','115000-143000 keV','160000-242000 keV',\
                '276000-404000 keV']
-
-output: <web_dir>/goes_pchan_p.html
-
-update_goes_integrate_page.py
------------------------------
-Update: <web_dir>/goes_part_p.html
-
-input: https://services.swpc.noaa.gov/json/goes/primary/integral-protons-1-day.json
-       https://services.swpc.noaa.gov/json/goes/primary/integral-electrons-1-day.json
-
 "energy" (particles)  = ['>=1 MeV', '>=5 MeV', '>=10 MeV', '>=30 MeV', '>=50 MeV',\
                          '>=60 MeV', '>=100 MeV', '>=500 MeV']
 "energy" (electron)   = ['>=2 MeV',]
 
-output: <web_dir>/goes_part_p.html
+output: <web_dir>/goes_pchan_p.html
+        <web_dir>/goes_part_p.html
 
 plot_goes_data.py
 -----------------
@@ -61,6 +55,15 @@ integral
 output: <html_dir>/Plots/goes_protons.png
         <html_dir>/Plots/goes_particles.png 
 
+alert_hrc.py
+------------
+send hrc proxy alerts
+
+input: <goes_dir>/Gp_pchan_5m.txt
+
+output: email alerts
+        <goes_dir>/hrc_proxy.csv
+        <goes_dir>/hrc_proxy_viol.json
 
 collect_goes_long.py
 ----------------------
@@ -84,6 +87,7 @@ mta on boba-v
 
 2,7,12,17,22,27,32,37,42,47,52,57 * * * * /data/mta4/Space_Weather/GOES/Scripts/goes_wrap_script      >> $HOME/Logs/goes_main_new.cron      2>&1
 14 2 * * *                                /data/mta4/Space_Weather/GOES/Scripts/goes_long_wrap_script >> $HOME/Logs/goes_long_term_new.cron 2>&1
+4,9,14,19,24,29,34,39,44,49,54,59 * * * * /data/mta4/Space_Weather/GOES/Scripts/check_archive_wrap_script >> $HOME/Logs/goes_archive_check.cron 2>&1
 
 
 
