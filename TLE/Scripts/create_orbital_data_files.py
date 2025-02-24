@@ -30,7 +30,7 @@ TLE_DATA_DIR = "/data/mta4/Space_Weather/TLE/Data"
 #
 # --- append paths to private folders to a python directory
 #
-sys.path.append("/data/mta4/Script/Python3.11/lib/python3.11/site-packages")
+sys.path.append("/data/mta4/Script/Python3.12")
 #
 # --- import several functions
 #
@@ -134,7 +134,7 @@ def create_spctrk_file(sat, tle, day_before, day_after, interval):
     # --- convert epoch time into a few different format
     # --- the third element of line 1
     #
-    atemp = re.split("\s+", s)
+    atemp = re.split(r"\s+", s)
     epoch = float(atemp[3])  # --- <yy><ddd>.<frac day>
     out = convert_igtime(epoch)  # --- <yyy>:<ddd>:<hh>:<mm>:<ss>
     btemp = re.split(":", out)
@@ -269,7 +269,7 @@ def create_time_list(day_before, day_after, interval):
     for k in range(0, steps):
         atime = start + interval * k
         atime = CxoTime(atime).date
-        atemp = re.split("\.", atime)  # --- remove fractional part of seconds
+        atemp = re.split(r"\.", atime)  # --- remove fractional part of seconds
         atime = atemp[0]
         date_list.append(atime)
 
@@ -383,7 +383,7 @@ def convert_tle(sat):
     for ent in data[:6]:
         mc = re.search("TLE EPOCH", ent)
         if mc is not None:
-            atemp = re.split("\s+", ent)
+            atemp = re.split(r"\s+", ent)
             year = float(atemp[-5])
             mon = list(calendar.month_abbr).index(atemp[-7])
             day = float(atemp[-6])
@@ -398,7 +398,7 @@ def convert_tle(sat):
     #
     line = ""
     for ent in data[5:]:
-        atemp = re.split("\s+", ent)
+        atemp = re.split(r"\s+", ent)
         if len(atemp) < 10:
             continue
         try:
@@ -551,7 +551,7 @@ def convert_to_gsm(sat):
         #
         # --- find time in seconds from 1970.1.1 to set the environment
         #
-        atemp = re.split("\s+", ent)
+        atemp = re.split(r"\s+", ent)
         gtime = float(atemp[0])
         year = float(atemp[-6])
         mon = float(atemp[-5])
