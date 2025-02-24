@@ -17,7 +17,7 @@ import re
 import time
 import math
 import numpy
-import Chandra.Time
+from cxotime import CxoTime
 from datetime import datetime
 import calendar
 import argparse
@@ -56,8 +56,7 @@ R2D    = 180.0 / math.pi
 #
 #--- current time
 #
-CURRENT_TIME_DATE    = time.strftime('%Y:%j:%H:%M:%S', time.gmtime())
-CURRENT_CHANDRA_TIME = Chandra.Time.DateTime(CURRENT_TIME_DATE).secs
+CURRENT_CHANDRA_TIME = CxoTime()
 #
 #--- a list of satellite orbital data on web
 #
@@ -268,8 +267,8 @@ def create_time_list(day_before, day_after, interval):
 #
 #--- set starting and stopping time in seconds from 1998.1.1
 #
-    start     = CURRENT_CHANDRA_TIME - day_before * 86400.0
-    stop      = CURRENT_CHANDRA_TIME + day_after  * 86400.0
+    start     = CURRENT_CHANDRA_TIME.secs - day_before * 86400.0
+    stop      = CURRENT_CHANDRA_TIME.secs + day_after  * 86400.0
     steps     = int((stop - start) / interval) + 1
 
     jd_list   = []
@@ -278,7 +277,7 @@ def create_time_list(day_before, day_after, interval):
     date_list = []
     for k in range(0, steps):
         atime = start + interval * k
-        atime = Chandra.Time.DateTime(atime).date
+        atime = CxoTime(atime).date
         atemp = re.split('\.', atime)       #--- remove fractional part of seconds
         atime = atemp[0]
         date_list.append(atime)
@@ -500,7 +499,7 @@ def convert_yday_to_mon_day(year, yday):
 #
 #--- convert day of year to month and day of month
 #
-    out   = time.strftime('%m:%d', time.strptime(f"{int(float(year))}:{yday:03}", '%Y:%j'))
+    out   = time.strftime('%m:%d', time.strptime(f"{int(float(year))}:{int(float(yday)):03}", '%Y:%j'))
     [mon, day] = re.split(':', out)
     mon = int(float(mon))
     day = int(float(day))
@@ -669,7 +668,7 @@ if __name__ == "__main__":
             TLE_DATA_DIR = args.path
             os.makedirs(TLE_DATA_DIR, exist_ok=True)
         else:
-            TLE_DATA_DIR = f"{os.getcwd()}/test/outTest"
+            TLE_DATA_DIR = f"{os.getcwd()}/test/_outTest"
             os.makedirs(TLE_DATA_DIR, exist_ok=True)
         
         create_orbital_data_files()
