@@ -1,1 +1,1 @@
-TERM=dummy; export TERM;/proj/sot/ska3/flight/bin/skare /bin/tcsh</data/mta4/Space_Weather/XMM/Scripts/xmm_main_script
+/proj/sot/ska3/flight/bin/skare /bin/tcsh</data/mta4/Space_Weather/XMM/Scripts/xmm_main_script
