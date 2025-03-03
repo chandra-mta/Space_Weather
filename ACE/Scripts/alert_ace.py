@@ -4,7 +4,7 @@
 **alert_ace.py**: Run ACE alerts.
 
 :Author: W. Aaron (william.aaron@cfa.harvard.edu)
-:Last Updated: Jan 14, 2025
+:Last Updated: Mar 03, 2025
 
 """
 
@@ -77,9 +77,12 @@ def alert_ace():
         ace_table["cxotime"].data >= two_hours_ago, ace_table[_P3_CHANNEL] > 0
     )
     data_select = ace_table[sel]
-    p130f = (
-        np.mean(data_select[_P3_CHANNEL].data) * 7200
-    )  #: Calculates the fluence with available data.
+    if len(data_select) > 0:
+        p130f = (
+            np.mean(data_select[_P3_CHANNEL].data) * 7200
+        )  #: Calculates the fluence with available data.
+    else:
+        p130f = -1e5 #: No valid data to send alert.
 
     #
     # ---Determine if Alerting
