@@ -1,61 +1,39 @@
 #!/proj/sot/ska3/flight/bin/python
 
-#################################################################################################
-#                                                                                               #
-#           add_region_info.py: add region information to the crm data                          #
-#                                                                                               #
-#           author: t. isobe (tisobe@cfa.harvard.edu)                                           #
-#                                                                                               #
-#           last update: Mar 16, 2021                                                           #
-#                                                                                               #
-#################################################################################################
+"""
+**add_region_info.py**: Add region info to the crm data
+
+:Author: W. Aaron (william.aaron@cfa.harvard.edu)
+:Last Updated: Mar 06, 2025
+
+"""
 
 import sys
 import os
-import string
 import re
 import time
 import math
-import Chandra.Time
+from cxotime import CxoTime
 from datetime import datetime
-import numpy
 
-sys.path.append('/data/mta4/Script/Python3.10/lib/python3.10/site-packages')
-from geopack import geopack
 #
-#--- reading directory list
+#--- Define Directory Pathing
 #
-path = '/data/mta4/Space_Weather/house_keeping/dir_list'
+KP_DATA_DIR = "/data/mta4/Space_Weather/KP/Data"
+TLE_DATA_DIR = "/data/mta4/Space_Weather/TLE/Data"
+XMM_DATA_DIR = "/data/mta4/Space_Weather/XMM/Data"
 
-f    = open(path, 'r')
-data = [line.strip() for line in f.readlines()]
-f.close()
-
-for ent in data:
-    atemp = re.split(':', ent)
-    var  = atemp[1].strip()
-    line = atemp[0].strip()
-    exec("%s = %s" %(var, line))
-#for writing out files in test directory
-if (os.getenv('TEST') == 'TEST'):
-    os.system('mkdir -p TestOut')
-    test_out = os.getcwd() + '/TestOut'
 #
-#--- append  pathes to private folders to a python directory
+# --- append paths to private folders to a python directory
 #
-sys.path.append('/data/mta4/Script/Python3.10/MTA/')
+sys.path.append("/data/mta4/Script/Python3.12")
 sys.path.append('/data/mta4/Space_Weather/EPHEM/Scripts/')
 #
-#--- import several functions
+# --- import several functions
 #
-import mta_common_functions as mcf
-import convert_coord        as ecc
-#
-#--- temp writing file name
-#
-import random
-rtail  = int(time.time() * random.random()) 
-zspace = '/tmp/zspace' + str(rtail)
+from geopack import geopack
+import convert_coord as ecc
+
 #
 #--- Earth radius
 #
@@ -69,17 +47,18 @@ def add_region_info():
     """
     add region information to crm database
     input:  none, but read from:
-            <kp_dir>Data/k_index_data
-            <tle_dir>Data/xmm.gsme_in_Re
-            <tle_dir>Data/cxo.gsme_in_Re
-    output: <xmm_dir>/Data/crmreg_xmm.dat
-            <xmm_dir>/Data/crmreg_cxo.dat
+            <kp_data_dir>/k_index_data
+            <tle_data_dir>Data/xmm.gsme_in_Re
+            <tle_data_dir>Data/cxo.gsme_in_Re
+    output: <xmm_data_dir>/Data/crmreg_xmm.dat
+            <xmm_data_dir>/Data/crmreg_cxo.dat
     """
 #
 #--- read kp data
 #
-    ifile = kp_dir + 'Data/k_index_data'
-    data  = mcf.read_data_file(ifile)
+    ifile = f"{KP_DATA_DIR}/k_index_data"
+    with open(f"{KP_DATA_DIR}/k_index_data") as f:
+        data = [line.strip() for line in f.readlines()]
     ktime = []
     kps   = []
     for ent in data:
@@ -115,23 +94,20 @@ def read_gsm(satellite):
     """
     read GSM data
     input:  satellite   --- either xmm or cxo
-            <tle_dir>/Data/<satellite>.gsme_in_Re
+            <tle_data_dir>/Data/<satellite>.gsme_in_Re
     output: a list of list of data:
                 atime   --- time in seconds from 1998.1.1
                 utime   --- time in seconds from 1970.1.1
                 xgsm/ygsm/zgsm  --- GSM coords
-                ygse/ygse/zgse  --- GSE coords
+                xgse/ygse/zgse  --- GSE coords
                 alt             --- orbital altitude
     """
-    if satellite == 'xmm':
-        ifile = tle_dir + 'Data/xmm.gsme_in_Re'
-    else:
-        ifile = tle_dir + 'Data/cxo.gsme_in_Re'
-
 #
 #--- read the radiation data
 #
-    data  = mcf.read_data_file(ifile)
+    ifile = f"{TLE_DATA_DIR}/{satellite}.gsme_in_Re'"
+    with open(ifile) as f:
+        data = [line.strip() for line in f.readlines()]
 
     atime = []
     utime = []
@@ -196,7 +172,7 @@ def write_region_data(xtime, utime,  nkps, xgsm, ygsm, zgsm, alt,  sat):
             ygse/ygse/zgse  --- GSE coords
             alt             --- orbital altitude
             sat             --- either xmm or cxo
-    output: <xmm_dir>/Data/crmreg_<sat>.dat
+    output: <xmm__data_dir>/crmreg_<sat>.dat
     """
     line = ''
     for k in range(0, len(xtime)):
@@ -209,10 +185,7 @@ def write_region_data(xtime, utime,  nkps, xgsm, ygsm, zgsm, alt,  sat):
         line = line + '%3.3f' % zgsm[k]  + '\t'
         line = line + '%4d'   % lid      + '\n'
 
-    ofile = xmm_dir + 'Data/crmreg_' + sat + '.dat'
-    #for writing out files in test directory
-    if (os.getenv('TEST') == 'TEST'):
-        ofile = test_out + "/" + os.path.basename(ofile)
+    ofile = f"{XMM_DATA_DIR}/crmreg_{sat}.dat"
     with open(ofile, 'w') as fo:
         fo.write(line)
 
