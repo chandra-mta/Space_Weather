@@ -14,7 +14,7 @@ import time
 import math
 import numpy
 from cxotime import CxoTime
-from datetime import datetime
+from datetime import datetime, timezone
 import calendar
 import argparse
 import getpass
@@ -561,7 +561,7 @@ def convert_to_gsm(sat):
         ss = float(atemp[-1])
 
         uts = ut_in_secs(year, mon, day, hh, mm, ss)
-        psi = geopack.recalc(uts)
+        psi = geopack.recalc(uts) #: Despite not being used, a bug in geopack.geigeo does not initialize the cgst variable correctly without running this first :(
         #
         # --- get the satellite postion in x, y, z
         #
@@ -661,8 +661,7 @@ def ut_in_secs(year, mon, day, hh, mm, ss):
     mm = int(float(mm))
     ss = int(float(ss))
 
-    uts = (datetime(year, mon, day, hh, mm, ss) - datetime(1970, 1, 1)).total_seconds()
-    uts += 86400.0
+    uts = datetime(year,mon,day,hh,mm,ss, tzinfo=timezone.utc).timestamp()
 
     return uts
 
