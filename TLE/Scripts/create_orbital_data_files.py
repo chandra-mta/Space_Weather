@@ -661,8 +661,6 @@ def ut_in_secs(year, mon, day, hh, mm, ss):
     mm = int(float(mm))
     ss = int(float(ss))
 
-    #uts = (datetime(year, mon, day, hh, mm, ss) - datetime(1970, 1, 1)).total_seconds()
-    #uts += 86400.0
     uts = datetime(year,mon,day,hh,mm,ss, tzinfo=timezone.utc).timestamp()
 
     return uts
