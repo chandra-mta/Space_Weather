@@ -8,13 +8,13 @@
 
 """
 
-import sys
 import os
+import sys
+import argparse
 import re
-import time
 import math
 from cxotime import CxoTime
-from datetime import datetime
+from datetime import datetime, timezone
 
 #
 #--- Define Directory Pathing
@@ -62,7 +62,7 @@ def add_region_info():
     ktime = []
     kps   = []
     for ent in data:
-        atemp = re.split('\s+', ent)
+        atemp = re.split(r'\s+', ent)
         ktime.append(float(atemp[0]))
         kps.append(float(atemp[1]))
 #
@@ -105,7 +105,7 @@ def read_gsm(satellite):
 #
 #--- read the radiation data
 #
-    ifile = f"{TLE_DATA_DIR}/{satellite}.gsme_in_Re'"
+    ifile = f"{TLE_DATA_DIR}/{satellite}.gsme_in_Re"
     with open(ifile) as f:
         data = [line.strip() for line in f.readlines()]
 
@@ -119,9 +119,9 @@ def read_gsm(satellite):
     zgse  = []
     alt   = []
     for ent in data:
-        atemp = re.split('\s+', ent)
+        atemp = re.split(r'\s+', ent)
 #
-#--- make it badk to kkm
+#--- make it back to kkm
 #
         xgsm.append(float(atemp[1]) *1.e3)
         ygsm.append(float(atemp[2]) *1.e3)
@@ -140,14 +140,14 @@ def read_gsm(satellite):
 #
 #--- compute Chandra Time
 #
-        ctime = convert_to_chandra(year, mon, day, hh, mm, ss)
+        ctime = CxoTime(f"{year}-{mon}-{day}T{hh}:{mm}:{ss}").secs
         atime.append(ctime)
 #
 #---- compute UTS
 #
         uts = ut_in_secs(year, mon, day, hh, mm, ss)
         utime.append(uts)
-        psi = geopack.recalc(uts)
+        psi = geopack.recalc(uts) #: Despite not being used, a bug in geopack.geigeo does not initialize the cgst variable correctly without running this first :(
 #
 #--- compute altitude
 #
@@ -176,7 +176,7 @@ def write_region_data(xtime, utime,  nkps, xgsm, ygsm, zgsm, alt,  sat):
     """
     line = ''
     for k in range(0, len(xtime)):
-        psi = geopack.recalc(utime[k])
+        psi = geopack.recalc(utime[k]) #: Despite not being used, a bug in geopack.geigeo does not initialize the cgst variable correctly without running this first :(
         xtail, ytail, ztail, lid = ecc.locreg(nkps[k], xgsm[k], ygsm[k], zgsm[k])
         line = line + '%9d'   % xtime[k] + '\t' 
         line = line + '%3.3f' % alt[k]   + '\t'
@@ -221,59 +221,66 @@ def match_kp(ktime, xtime, kps):
 
     return nkps
 
-#---------------------------------------------------------------------------------------
-#-- ut_in_secs: onvert calendar date into univarsal time in sec                       --
-#---------------------------------------------------------------------------------------
-
 def ut_in_secs(year, mon, day, hh, mm, ss):
-    """
-    convert calendar date into univarsal time in sec (seconds from 1970.1.1)
-    input:  year--- year
-    mon --- month
-    day --- day
-    hh  --- hour
-    mm  --- minutes
-    ss  --- seconds
-    output:uts  --- UT in seconds from 1970.1.1
+    """convert calendar date into universal time in sec (seconds from 1970.1.1)
+
+    :param year: year
+    :type year: str, int,float
+    :param mon: month
+    :type mon: str, int,float
+    :param day: day
+    :type day: str, int,float
+    :param hh: hours
+    :type hh: str, int,float
+    :param mm: minutes
+    :type mm: str, int,float
+    :param ss: seconds
+    :type ss: str, int,float
+    :return: UT in seconds from 1970.1.1
+    :rtype: float
     """
     year = int(float(year))
-    mon  = int(float(mon))
-    day  = int(float(day))
-    hh   = int(float(hh))
-    mm   = int(float(mm))
-    ss   = int(float(ss))
-    
-    uts  = (datetime(year, mon, day, hh, mm, ss)\
-                        - datetime(1970,1,1)).total_seconds()
-    uts += 86400.0
+    mon = int(float(mon))
+    day = int(float(day))
+    hh = int(float(hh))
+    mm = int(float(mm))
+    ss = int(float(ss))
+
+    uts = datetime(year,mon,day,hh,mm,ss, tzinfo=timezone.utc).timestamp()
 
     return uts
 
-#--------------------------------------------------------------------------
-#-- convert_to_chandra: convert calendar date into univarsal time in sec         --
-#--------------------------------------------------------------------------
-
-def convert_to_chandra(year, mon, day, hh, mm, ss):
-    """
-    convert calendar date into chandra time
-    input:  year--- year
-            mon --- month
-            day --- day
-            hh  --- hour
-            mm  --- minutes
-            ss  --- seconds
-    output: ctime --- seconds from 1998.1.1
-    """
-    line = str(year) + ':' + str(mon) + ':' + str(day) + ':' 
-    line = line + str(hh) + ':' + str(mm) + ':' + str(ss)
-    line = time.strftime('%Y:%j:%H:%M:%S', time.strptime(line, '%Y:%m:%d:%H:%M:%S'))
-    ctime = Chandra.Time.DateTime(line).secs
-
-    return ctime
-
-#------------------------------------------------------------------------------
-
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-m", "--mode", choices = ['flight','test'], required = True, help = "Determine running mode.")
+    parser.add_argument("-p", "--path", required = False, help = "Directory path to determine output location of plot.")
+    args = parser.parse_args()
+#
+#--- Determine if running in test mode and change pathing if so
+#
+    if args.mode == "test":
+        if args.path:
+            XMM_DATA_DIR = args.path
+        else:
+            XMM_DATA_DIR = f"{os.getcwd()}/test/_outTest"
+        os.makedirs(XMM_DATA_DIR, exist_ok = True)
+        add_region_info()
+    elif args.mode == "flight":
+#
+#--- Create a lock file and exit strategy in case of race conditions
+#
+        import getpass
+        name = os.path.basename(__file__).split(".")[0]
+        user = getpass.getuser()
+        if os.path.isfile(f"/tmp/{user}/{name}.lock"):
+            sys.exit(f"Lock file exists as /tmp/{user}/{name}.lock. Process already running/errored out. Check calling scripts/cronjob/cronlog.")
+        else:
+            os.system(f"mkdir -p /tmp/{user}; touch /tmp/{user}/{name}.lock")
 
-    add_region_info()
+        add_region_info()
+#
+#--- Remove lock file once process is completed
+#
+        os.system(f"rm /tmp/{user}/{name}.lock")
+
 
