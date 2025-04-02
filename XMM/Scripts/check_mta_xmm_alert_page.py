@@ -363,11 +363,6 @@ def keep_record(time, alt, l1):
     with open(outfile, 'w') as fo:
         fo.write(line)
 
-    if (os.getenv('TEST') != 'TEST'):
-        cmd = 'cat ' + zspace + '|mailx -s\"Subject: mta_XMM_alert\n\" ' + ' '.join(ADMIN) 
-        os.system(cmd)
-        rm_file(zspace)
-
     out= xmm_dir + 'Data/alt_trip_records'
     line = str(time) + ': ' + str(chigh) + '\t\t' + str(l1) + '\n'
     #for writing out files in test directory
