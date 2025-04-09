@@ -1,0 +1,14 @@
+#tablediv
+{
+   float:left;
+   padding:0px 20px 0px 0px;
+}
+#mapdiv
+{
+   float:right;
+   padding:0px 0px 20px 0px;
+}
+#xray_container
+{
+   display: inline-block
+}

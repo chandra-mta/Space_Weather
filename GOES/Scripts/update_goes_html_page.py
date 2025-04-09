@@ -16,6 +16,8 @@ import argparse
 import traceback
 import getpass
 from jinja2 import Environment, FileSystemLoader
+from astropy.io import ascii
+from astropy.table import Table, unique, vstack, hstack, join
 #
 #--- Define Directory Pathing
 #
@@ -31,6 +33,8 @@ ADMIN = ['mtadude@cfa.harvard.edu']
 DLINK = 'https://services.swpc.noaa.gov/json/goes/primary/differential-protons-1-day.json'
 ILINK = 'https://services.swpc.noaa.gov/json/goes/primary/integral-protons-1-day.json'
 ELINK = 'https://services.swpc.noaa.gov/json/goes/primary/integral-electrons-1-day.json'
+XLINK = 'https://services.swpc.noaa.gov/json/goes/primary/xray-flares-7-day.json'
+EVENTLINK = "https://services.swpc.noaa.gov/json/edited_events.json"
 
 #
 # --- Energy Designations
@@ -73,12 +77,13 @@ _JINJA_ENV = Environment(loader = FileSystemLoader('Template', followlinks = Tru
 def update_goes_html_page():
     """Update goes differential and integral html pages
     
-    :File Out: <html_dir>/GOES>/goes_pchan_p.html, <html_dir>/GOES>/goes_part_p.html
+    :File Out: <html_dir>/GOES>/goes_pchan_p.html, <html_dir>/GOES>/goes_part_p.html, <html_dir>/GOES>/goes_xray_p.html
 
     """
 
-    diff_table = make_diff_table() #: Generate two hour differential table.
-    intg_table = make_intg_table() #: Generate two hour integral table.
+    diff_table = make_diff_table() #: Generate and save two hour differential table.
+    intg_table = make_intg_table() #: Generate and save two hour integral table.
+    xray_table = make_xray_table(XLINK, EVENTLINK) #: Generate and save GOES 7 day XRAY table.
 
     #
     # --- Pull and Render Jinja Template
@@ -87,6 +92,8 @@ def update_goes_html_page():
     diff_render = diff_template.render(data_table = diff_table)
     intg_template = _JINJA_ENV.get_template('goes_intg.jinja')
     intg_render = intg_template.render(data_table = intg_table)
+    xray_template = _JINJA_ENV.get_template('goes_xray.jinja')
+    xray_render = xray_template.render(data_table = xray_table)
     #
     # --- Write template contents to a html file
     #
@@ -99,6 +106,11 @@ def update_goes_html_page():
     os.makedirs(os.path.dirname(intg_file), exist_ok=True)
     with open(intg_file, "w") as f:
         f.write(intg_render)
+    
+    xray_file = f"{HTML_GOES_DIR}/goes_xray_p.html"
+    os.makedirs(os.path.dirname(xray_file), exist_ok=True)
+    with open(xray_file, "w") as f:
+        f.write(xray_render)
 
 def make_diff_table():
     """create two hour table of goes differential proton flux
@@ -333,6 +345,70 @@ def make_intg_table():
 
     return line
     
+def make_xray_table(xlink, eventlink):
+    """
+    Pull X-ray events from SWPC and save webpage table to file
+    
+    :NOTE: This is written slightly differently compared to the other GOES pages to benefit form astropy functionality
+    """
+    flare_table = Table(rows=_read_json(xlink))
+    event_table = Table(rows=_read_json(eventlink))
+    #
+    # --- Flare table contains the notable observed x-ray events by GOES
+    # --- The full events table is filtered to provide active region of these flares
+    #
+    sel = np.zeros(len(event_table), dtype=bool)
+    for idx, row in enumerate(event_table):
+        for flare_row in flare_table['time_tag', 'satellite']:
+            if row['begin_datetime'] == flare_row['time_tag'][:-1] and row['observatory'] == f"G{flare_row['satellite']}":
+                sel[idx] = True
+    #
+    # --- With the correctly selected events, further refine in order to concatenate data tables.
+    #
+    flare_matching_events = event_table[sel]
+    flare_matching_events.rename_column('begin_datetime','time_tag')
+    flare_matching_events['time_tag'] = [f"{x}Z" for x in flare_matching_events['time_tag']]
+
+    flare_table = join(flare_table, flare_matching_events['time_tag', 'region'], join_type='left')
+    #
+    # --- Event might not list the AR (Listed as None), or it might not match with flare_table (Listed as np.ma.masked)
+    # --- Make Mapping uniform and create class_letter column
+    #
+    flare_table['region'] = flare_table['region'].tolist()
+    #
+    #--- Save table to GOES Data
+    #
+    ascii.write(flare_table,
+            format='csv',
+            output=f'{GOES_DATA_DIR}/flare_table_7_days.csv',
+            overwrite=True,
+           )
+    #
+    # --- Generate html table for webpage.
+    #
+    table = "<table id='flare_table' class='display'><thead><tr><th>Time at Maximum</th><th>Maximum Class</th><th>Region</th></tr></thead>"
+    for row in flare_table:
+        table += f"<tr><td>{row['max_time']}</td><td>{row['max_class']}</td><td>{row['region'] if row['region'] is not None else '----'}</td></tr>"
+    table += "</table>"
+
+    return table
+
+
+def _read_json(link):
+    """Generalized json file reader
+
+    :param link: URL or file path
+    :type link: str
+    :return: _description_
+    :rtype: _type_
+    """
+    if os.path.isfile(link):
+        with open(link) as f:
+            data = json.load(f)
+    else:
+        with urllib.request.urlopen(link) as url:
+            data = json.loads(url.read().decode())
+    return data
 
 def extract_goes_data(link, energy_list, TO_MEV):
     """
@@ -344,12 +420,7 @@ def extract_goes_data(link, energy_list, TO_MEV):
 #
 #--- read json file from a file or the web
 #
-    if os.path.isfile(link):
-        with open(link) as f:
-            data = json.load(f)
-    else:
-        with urllib.request.urlopen(link) as url:
-            data = json.loads(url.read().decode())
+    data = _read_json(link)
 #
 #--- go through all energy ranges
 #
