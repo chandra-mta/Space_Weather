@@ -31,6 +31,8 @@ ADMIN = ['mtadude@cfa.harvard.edu']
 DLINK = 'https://services.swpc.noaa.gov/json/goes/primary/differential-protons-1-day.json'
 ILINK = 'https://services.swpc.noaa.gov/json/goes/primary/integral-protons-1-day.json'
 ELINK = 'https://services.swpc.noaa.gov/json/goes/primary/integral-electrons-1-day.json'
+XLINK = 'https://services.swpc.noaa.gov/json/goes/primary/xray-flares-7-day.json'
+EVENTLINK = "https://services.swpc.noaa.gov/json/edited_events.json"
 
 #
 # --- Energy Designations
@@ -73,12 +75,13 @@ _JINJA_ENV = Environment(loader = FileSystemLoader('Template', followlinks = Tru
 def update_goes_html_page():
     """Update goes differential and integral html pages
     
-    :File Out: <html_dir>/GOES>/goes_pchan_p.html, <html_dir>/GOES>/goes_part_p.html
+    :File Out: <html_dir>/GOES>/goes_pchan_p.html, <html_dir>/GOES>/goes_part_p.html, <html_dir>/GOES>/goes_xray_p.html
 
     """
 
-    diff_table = make_diff_table() #: Generate two hour differential table.
-    intg_table = make_intg_table() #: Generate two hour integral table.
+    diff_table = make_diff_table() #: Generate and save two hour differential table.
+    intg_table = make_intg_table() #: Generate and save two hour integral table.
+    xray_table = make_xray_table() #: Generate and save GOES 7 day XRAY table.
 
     #
     # --- Pull and Render Jinja Template
@@ -87,6 +90,8 @@ def update_goes_html_page():
     diff_render = diff_template.render(data_table = diff_table)
     intg_template = _JINJA_ENV.get_template('goes_intg.jinja')
     intg_render = intg_template.render(data_table = intg_table)
+    xray_template = _JINJA_ENV.get_template('goes_xray.jinja')
+    xray_render = xray_template.render(data_table = xray_table)
     #
     # --- Write template contents to a html file
     #
@@ -99,6 +104,11 @@ def update_goes_html_page():
     os.makedirs(os.path.dirname(intg_file), exist_ok=True)
     with open(intg_file, "w") as f:
         f.write(intg_render)
+    
+    xray_file = f"{HTML_GOES_DIR}/goes_xray_p.html"
+    os.makedirs(os.path.dirname(xray_file), exist_ok=True)
+    with open(xray_file, "w") as f:
+        f.write(xray_render)
 
 def make_diff_table():
     """create two hour table of goes differential proton flux
@@ -333,6 +343,9 @@ def make_intg_table():
 
     return line
     
+def make_xray_table():
+    pass
+
 
 def extract_goes_data(link, energy_list, TO_MEV):
     """
