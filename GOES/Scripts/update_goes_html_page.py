@@ -353,6 +353,45 @@ def make_xray_table(xlink, eventlink):
     """
     flare_table = Table(rows=_read_json(xlink))
     event_table = Table(rows=_read_json(eventlink))
+    #
+    # --- Flare table contains the notable observed x-ray events by GOES
+    # --- The full events table is filtered to provide active region of these flares
+    #
+    sel = np.zeros(len(event_table), dtype=bool)
+    for idx, row in enumerate(event_table):
+        for flare_row in flare_table['time_tag', 'satellite']:
+            if row['begin_datetime'] == flare_row['time_tag'][:-1] and row['observatory'] == f"G{flare_row['satellite']}":
+                sel[idx] = True
+    #
+    # --- With the correctly selected events, further refine in order to concatenate data tables.
+    #
+    flare_matching_events = event_table[sel]
+    flare_matching_events.rename_column('begin_datetime','time_tag')
+    flare_matching_events['time_tag'] = [f"{x}Z" for x in flare_matching_events['time_tag']]
+
+    flare_table = join(flare_table, flare_matching_events['time_tag', 'region'], join_type='left')
+    #
+    # --- Event might not list the AR (Listed as None), or it might not match with flare_table (Listed as np.ma.masked)
+    # --- Make Mapping uniform and create class_letter column
+    #
+    flare_table['region'] = flare_table['region'].tolist()
+    #
+    #--- Save table to GOES Data
+    #
+    ascii.write(flare_table,
+            format='csv',
+            output=f'{GOES_DATA_DIR}/flare_table_7_days.csv'
+           )
+    #
+    # --- Generate html table for webpage.
+    #
+    table = "<table id='flare_table'><thead><tr><th>Time at Maximum</th><th>Maximum Class</th><th>Region</th></tr></thead>"
+    for row in flare_table:
+        table += f"<tr><td>{row['max_time']}</td><td>{row['max_class']}</td><td>{row['region'] if row['region'] is not None else '----'}</td></tr>"
+    table += "</table>"
+
+    return table
+
 
 def _read_json(link):
     """Generalized json file reader
