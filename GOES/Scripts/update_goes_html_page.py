@@ -16,6 +16,8 @@ import argparse
 import traceback
 import getpass
 from jinja2 import Environment, FileSystemLoader
+from astropy.io import ascii
+from astropy.table import Table, unique, vstack, hstack, join
 #
 #--- Define Directory Pathing
 #
@@ -81,7 +83,7 @@ def update_goes_html_page():
 
     diff_table = make_diff_table() #: Generate and save two hour differential table.
     intg_table = make_intg_table() #: Generate and save two hour integral table.
-    xray_table = make_xray_table() #: Generate and save GOES 7 day XRAY table.
+    xray_table = make_xray_table(XLINK, EVENTLINK) #: Generate and save GOES 7 day XRAY table.
 
     #
     # --- Pull and Render Jinja Template
@@ -343,9 +345,30 @@ def make_intg_table():
 
     return line
     
-def make_xray_table():
-    pass
+def make_xray_table(xlink, eventlink):
+    """
+    Pull X-ray events from SWPC and save webpage table to file
+    
+    :NOTE: This is written slightly differently compared to the other GOES pages to benefit form astropy functionality
+    """
+    flare_table = Table(rows=_read_json(xlink))
+    event_table = Table(rows=_read_json(eventlink))
 
+def _read_json(link):
+    """Generalized json file reader
+
+    :param link: URL or file path
+    :type link: str
+    :return: _description_
+    :rtype: _type_
+    """
+    if os.path.isfile(link):
+        with open(link) as f:
+            data = json.load(f)
+    else:
+        with urllib.request.urlopen(link) as url:
+            data = json.loads(url.read().decode())
+    return data
 
 def extract_goes_data(link, energy_list, TO_MEV):
     """
@@ -357,12 +380,7 @@ def extract_goes_data(link, energy_list, TO_MEV):
 #
 #--- read json file from a file or the web
 #
-    if os.path.isfile(link):
-        with open(link) as f:
-            data = json.load(f)
-    else:
-        with urllib.request.urlopen(link) as url:
-            data = json.loads(url.read().decode())
+    data = _read_json(link)
 #
 #--- go through all energy ranges
 #
