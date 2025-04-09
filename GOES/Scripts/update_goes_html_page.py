@@ -380,12 +380,13 @@ def make_xray_table(xlink, eventlink):
     #
     ascii.write(flare_table,
             format='csv',
-            output=f'{GOES_DATA_DIR}/flare_table_7_days.csv'
+            output=f'{GOES_DATA_DIR}/flare_table_7_days.csv',
+            overwrite=True,
            )
     #
     # --- Generate html table for webpage.
     #
-    table = "<table id='flare_table'><thead><tr><th>Time at Maximum</th><th>Maximum Class</th><th>Region</th></tr></thead>"
+    table = "<table id='flare_table' class='display'><thead><tr><th>Time at Maximum</th><th>Maximum Class</th><th>Region</th></tr></thead>"
     for row in flare_table:
         table += f"<tr><td>{row['max_time']}</td><td>{row['max_class']}</td><td>{row['region'] if row['region'] is not None else '----'}</td></tr>"
     table += "</table>"
