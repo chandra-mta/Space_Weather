@@ -120,6 +120,7 @@ def alert_ace():
             text_body += f"see {ACE_URL}\n"
             if os.path.isfile(f"{SNAPSHOT_DIR}/.scs107alert"):
                 recipients = "sot_yellow_alert@cfa.harvard.edu"
+                text_body += "SCS107 is listed as alerted.\n"
             else:
                 recipients = "sot_ace_alert@cfa.harvard.edu"
                 text_body += "The ACIS on-call person should review the data and call a telecon if necessary.\n"
