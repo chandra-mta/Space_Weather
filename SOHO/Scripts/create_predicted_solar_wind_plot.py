@@ -11,7 +11,6 @@
 #                                                                               #
 #################################################################################
 
-import sys
 import os
 import requests
 import zipfile
@@ -19,7 +18,8 @@ import re
 import time
 import urllib.request
 import json
-import Chandra.Time
+import numpy as np
+from Chandra.Time import DateTime
 from astropy.table import Table
 import astropy.units as u
 
@@ -30,9 +30,7 @@ from pylab import *
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as font_manager
 
-#
-#--- reading directory list
-#
+# Reading directory list
 path = '/data/mta4/Space_Weather/house_keeping/dir_list'
 
 with open(path, 'r') as f:
@@ -43,37 +41,24 @@ for ent in data:
     var  = atemp[1].strip()
     line = atemp[0].strip()
     exec("%s = %s" %(var, line))
-#for writing out files in test directory
+
+# For writing out files in test directory
 if (os.getenv('TEST') == 'TEST'):
     os.system('mkdir -p TestOut')
     test_out = os.getcwd() + '/TestOut'
-#
-#--- append  pathes to private folders to a python directory
-#
-sys.path.append('/data/mta/Script/Python3.10/MTA/')
-#
-#--- import several functions
-#
-import mta_common_functions as mcf
-#
-#--- temp writing file name
-#
+
+# Temp writing file name
 import random
 rtail  = int(time.time() * random.random())
 zspace = '/tmp/zspace' + str(rtail)
-#
-#--- current time
-#
-current_time_date    = time.strftime('%Y:%j:%H:%M:%S', time.gmtime())
-current_chandra_time = Chandra.Time.DateTime(current_time_date).secs
-this_year            = int(float(time.strftime('%Y', time.gmtime())))
-this_doy             = int(float(time.strftime('%j', time.gmtime())))
-year_start           = Chandra.Time.DateTime(str(this_year) + ':001:00:00:00').secs
-#
-#--- data sources
-#
-swepam = 'https://services.swpc.noaa.gov/json/ace/swepam/ace_swepam_1h.json'
-mtof = f"https://l1.umd.edu/data/{this_year}_CELIAS_Proton_Monitor_5min.zip"
+
+# Current time
+THIS_YEAR = DateTime().year
+YEAR_START_SECS = DateTime(f'{THIS_YEAR}:001:00:00:00').secs
+
+# Data sources
+SWEPAM = 'https://services.swpc.noaa.gov/json/ace/swepam/ace_swepam_1h.json'
+MTOF = f"https://l1.umd.edu/data/{THIS_YEAR}_CELIAS_Proton_Monitor_5min.zip"
 
 #-------------------------------------------------------------------------
 #-- create_predicted_solar_wind_plot: create predicted soloar wind speed and density plot
@@ -99,7 +84,8 @@ def create_predicted_solar_wind_plot():
 #
 #--- orbital information
 #
-    [gtime_list, alt_list, lon_list, lat_lst] = read_gsme_data()
+    #[gtime_list, alt_list, lon_list, lat_lst] = read_gsme_data()
+    gsme_data = read_gsme_data()
 #
 #--- create prediction
 #
@@ -110,7 +96,7 @@ def create_predicted_solar_wind_plot():
 #
 #--- plot the data
 #
-    create_plot(gtime_list, alt_list, lon_list, lat_lst, dtime, \
+    create_plot(gsme_data['time'], gsme_data['alt'], gsme_data['lon'], gsme_data['lat'], dtime, \
                 aspd0, mspd0, aspdu0, mspdu0, aden0, mden0, adenu0, mdenu0,\
                 aspd1, mspd1, aspdu1, mspdu1, aden1, mden1, adenu1, mdenu1,\
                 adens, aspds, mdens, mspds)
@@ -129,7 +115,7 @@ def download_swepam():
 #
 #--- read soloar wind data from json site
 #
-    with urllib.request.urlopen(swepam) as url:
+    with urllib.request.urlopen(SWEPAM) as url:
         data = json.loads(url.read().decode())
 
     time_list = []
@@ -146,7 +132,7 @@ def download_swepam():
 #--- time format is <yyyy><ddd><hh>
 #
         ltime = time.strftime('%Y:%j:%H:00:00', time.strptime(ent['time_tag'], '%Y-%m-%dT%H:%M:%S'))
-        ltime = int(Chandra.Time.DateTime(ltime).secs / 3600.)
+        ltime = int(DateTime(ltime).secs / 3600.)
 
         try:
             dval = float(ent['dens'])
@@ -164,10 +150,6 @@ def download_swepam():
     return [time_list,  density, speed]
 
 
-#-------------------------------------------------------------------------
-#-- download_mtof: download soho mtof data from html site              ---
-#-------------------------------------------------------------------------
-
 def download_mtof():
     """    
     download soho mtof data from html site
@@ -178,7 +160,7 @@ def download_mtof():
             speed       --- dictionary of solar wind speed; key chandra time in hr unit
     """
 
-    r = requests.get(mtof, allow_redirects=True)
+    r = requests.get(MTOF, allow_redirects=True)
     open('mtof.zip', 'wb').write(r.content)
 
     with zipfile.ZipFile('mtof.zip', 'r') as f:
@@ -203,7 +185,7 @@ def download_mtof():
         t.add_row(row_items)
 
     time = [f"{str(int(2000 + x['yy']))}:{x['doy']}" for x in t]
-    time = [Chandra.Time.DateTime(tt).secs / 3600 for tt in time] # in hours
+    time = [DateTime(tt).secs / 3600 for tt in time] # in hours
 
     # Only one entry for each int(time)
     t['time_int'] = [int(x) for x in time]
@@ -226,96 +208,66 @@ def download_mtof():
     return list(t_median['time_int']), density, speed
 
 
-#-------------------------------------------------------------------------
-#-- read_gsme_data: read gsme data                                      --
-#-------------------------------------------------------------------------
-
 def read_gsme_data():
     """
-    read gsme data 
-    input: none, but read from:
-        <ephem_dir>/Data/PE.EPH.gsme_spherical
-    output: time    --- a list of time in day of year
-            alt     --- a list of altitude
-            lon     --- a list of longitude
-            lat     --- a list of latitude
+    Read gsme data from <ephem_dir>/Data/PE.EPH.gsme_spherical
+    :returns data: a numpy ndarray with fields 'time' (time in fractional day of year),
+                  'alt' (altitude), 'lon' (longitude), 'lat' (latitude)
     """
 
     ifile = ephem_dir + 'Data/PE.EPH.gsme_spherical'
-    data  = mcf.read_data_file(ifile)
+    data = np.loadtxt(ifile)
 
-    time  = []
-    alt   = []
-    lon   = []
-    lat   = []
-    for ent in data:
-        atemp = re.split('\s+', ent)
-        ctime = float(atemp[0])
-        time.append(convert_to_doy(ctime))
-        alt.append(float(atemp[1]))
-        lat.append(-1.0 * float(atemp[2])+90.0)
-        lon.append(float(atemp[3]))
-#
-#--- usually ephem data is a few days short of 30 day period; extend the data 
-#--- to fill the orbital data
-#
-    [time, alt, lon, lat] = extend_orbit_period(time, alt, lon, lat)
+    tab = Table(data, names=('time', 'alt', 'lat', 'lon',
+                             'tmp4', 'tmp5', 'tmp6', 'tmp7',
+                             'tmp8', 'tmp9', 'tmp10', 'tmp11', 'tmp12'))
 
-    return [time, alt, lon, lat]
+    tab['time'] = convert_to_doy(tab['time'])
+    tab['lat'] = -1.0 * tab['lat'] + 90.0
 
-#--------------------------------------------------------------------------
-#-- extend_orbit_period: extend orbital period to fill up 30 day period   -
-#--------------------------------------------------------------------------
+    # Usually ephem data is a few days short of 30 day period; extend the data
+    # to fill the orbital data
+    data = extend_orbit_period(tab['time', 'alt', 'lat', 'lon'])
 
-def extend_orbit_period(time, alt, lon, lat):
+    return data
+
+
+def extend_orbit_period(tinp):
     """
-    extend orbital period to fill up 30 day period
-    input:  time    --- a list of time
-            alt     --- a list of altitude
-            lon     --- a list of longitude
-            lat     --- a list of latitude
-    output: time    --- a list of time updated
-            alt     --- a list of altitude updated
-            lon     --- a list of longitude updated
-            lat     --- a list of latitude updated
+    Extend orbital period to fill up 30 day period
+    :param tinp: an astropy table with columns 'time', 'alt', 'lon', lat'.
+    :returns data: a numpy ndarray with fields 'time', 'alt', 'lon', lat',
+                   and with values extended in time
     """
-#
-#--- find indecies of last two nadirs
-#
-    [p1, p2] = find_orbit_nadir_times(alt)
-#
-#--- take the data values between these two periods
-#
-    dcnt   = p2 - p1
-    t1     = time[p1]
-    t2     = time[p2]
-    tdiff  = t2 - t1
-    tstep  = tdiff/ dcnt
-    alt_a  = alt[p1:p2]
-    lon_a  = lon[p1:p2]
-    lat_a  = lat[p1:p2]
-#
-#--- drop the data after the last nadir point
-#
-    time   = time[:p2]
-    alt    = alt[:p2]
-    lon    = lon[:p2]
-    lat    = lat[:p2]
-#
-#--- append the data values between two periods and extend the data
-#
+
+    # Find indecies of last two nadirs
+    [p1, p2] = find_orbit_nadir_times(tinp['alt'])
+
+    # Drop the data after the last nadir point
+    data = tinp[:p2].as_array()
+
+    # Find the data values between two periods and extend the data
+    data_between_nadirs = tinp[p1:p2].as_array()
+
     for k in range(0, 8):
-        for m in range(0, dcnt):
-            time.append(time[-1] + tstep)
-        alt = alt + alt_a
-        lon = lon + lon_a
-        lat = lat + lat_a
+        data = np.append(data, data_between_nadirs)
 
-    return [time, alt, lon, lat]
+    # Fix the time
+    time = tinp['time'][:p2]
 
-#--------------------------------------------------------------------------
-#-- find_orbit_nadir_times: find two indecies of the last two nadirs      -
-#--------------------------------------------------------------------------
+    dcnt = p2 - p1
+    t1 = tinp['time'][p1]
+    t2 = tinp['time'][p2]
+    tdiff = t2 - t1
+    tstep = tdiff / dcnt
+
+    tt = np.arange(time[-1] + tstep, time[-1] + (8 * dcnt + 1) * tstep, tstep)
+    time = np.append(time, tt)
+
+    data['time'] = time
+
+    return data
+
 
 def find_orbit_nadir_times(alt):
     """
@@ -409,6 +361,7 @@ def create_prediction(adend, aspdd,  mdend, mspdd):
 #
 #--- convert current Chandra Time into hour unit
 #
+    current_chandra_time = DateTime().secs
     key0 = int(current_chandra_time / 3600.0)
 #
 #--- create 30 day prediction in 1hr step
@@ -706,7 +659,7 @@ def create_plot(otime, alt, lon, lat, dtime,\
     ax4.text(xtxt,  ytxt5, 'Solar Wind Proton Density Uncertainty (Predicted - Measured)', color='white')
     #ax4.text(xtxt1, ytxt5, adens, color='lime')
     #x4.text(xtxt2, ytxt5, mdens, color='red')
-    ax4.set_xlabel('Day of Year (Year: ' + str(this_year) +')', weight='heavy')
+    ax4.set_xlabel(f'Day of Year (Year: {THIS_YEAR})', weight='heavy')
 #
 #--- set the size of the plotting area in inch
 #
@@ -725,23 +678,24 @@ def create_plot(otime, alt, lon, lat, dtime,\
 #
 #--- copy to SOHO directory
 #
-    cmd = 'cp -f ' + outname + ' ' + html_dir + 'SOHO/Plot/solwin.png'
+    cmd = f'cp -f {outname} {html_dir}/SOHO/Plot/solwin.png'
     os.system(cmd)
 
-#--------------------------------------------------------------------------
-#-- convert_to_doy: convert to chandra time to day of year of this year  --
-#--------------------------------------------------------------------------
 
 def convert_to_doy(ctime):
     """
-    convert to chandra time to day of year of this year
-    input:  ctime   --- Chandra Time
-    output: dtime   --- time in doy of this year
-    note: see at the top for year_start value
+    Convert to chandra time to fractional day of year of this year
+    :param ctime: Chandra.Time.DateTime (an array, or astropy Table column)
+    :returns dtime: time in fractional doy of this year
     """
-    dtime = (ctime - year_start) / 86400.0
-    if dtime > 0:
-        dtime += 1
+    dtime = (ctime - YEAR_START_SECS) / 86400.0
+
+    if isinstance(dtime, (int, float)):
+        if dtime > 0:
+            dtime = dtime + 1
+    else:
+        idx = dtime > 0
+        dtime[idx] = dtime[idx] + 1
 
     return dtime
 
