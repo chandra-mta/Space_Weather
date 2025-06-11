@@ -26,7 +26,7 @@ GOES_MEDIA_DIR = '/data/mta4/www/RADIATION_new/GOES/Media'
 # --- Links to media sources
 #
 CCOR_1_7DAYS = 'https://services.swpc.noaa.gov/products/ccor1/mp4s/ccor1_last_7_days.mp4'
-MAGNETOGRAM_MAP = 'https://sdo.gsfc.nasa.gov/assets/img/latest/latest_4096_HMIBC.jpg'
+MAGNETOGRAM_MAP = 'https://sdo.gsfc.nasa.gov/assets/img/latest/latest_2048_HMIBC.jpg'
 SOLAR_REGIONS = 'https://services.swpc.noaa.gov/json/solar_regions.json'
 
 URL_FILES = [CCOR_1_7DAYS,MAGNETOGRAM_MAP,SOLAR_REGIONS]
@@ -40,12 +40,27 @@ def swpc_media():
         file_name = os.path.basename(urlparse(url).path)
         cmd = f"wget -O {GOES_MEDIA_DIR}/{file_name} {url}"
         os.system(cmd)
-    
-
-    with open(os.path.basename(urlparse(SOLAR_REGIONS).path)) as f:
+    #: Select today's active regions
+    with open(f"{GOES_MEDIA_DIR}/{os.path.basename(urlparse(SOLAR_REGIONS).path)}") as f:
         raw_json = json.load(f)
         all_regions_table = Table(rows = raw_json)
         todays_regions = all_regions_table[all_regions_table['observed_date'] == TODAY]
+    #: 
+    img = Image.open(f"{GOES_MEDIA_DIR}/{os.path.basename(urlparse(MAGNETOGRAM_MAP).path)}")
+    annotated_img = img.copy()
+    w,h = annotated_img.size
+    font = ImageFont.truetype("DejaVuSans-Bold.ttf", 40)
+    draw = ImageDraw.Draw(annotated_img)
+    #: Annotate the magnetogram image with the active region locations
+    for region in todays_regions:
+        lat = region['latitude']
+        long = -region['longitude']
+        x,y = _to_pixel(w,h,lat,long)
+        draw.text((x-112,y+38),str(region['region']), fill='white', font=font)
+    
+    annotated_img.save(f"{GOES_MEDIA_DIR}/annotated_sdo_hmi_magnetogram.png")
+    annotated_img.close()
+    img.close()
 
 def _deg2rad(deg):
     return (deg * math.pi) /180
