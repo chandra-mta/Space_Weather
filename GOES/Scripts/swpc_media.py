@@ -47,6 +47,37 @@ def swpc_media():
         all_regions_table = Table(rows = raw_json)
         todays_regions = all_regions_table[all_regions_table['observed_date'] == TODAY]
 
+def _deg2rad(deg):
+    return (deg * math.pi) /180
+
+def _to_pixel(w,h,lat,long):
+    """
+    Use image size to convert lat, long coordinates into pixel locations
+    
+    :w,h: The pixel size of the image
+    :lat: Latitude
+    :long: Longitude
+    """
+    spacing = int(w * 0.042) #: Pixel distance inward of edge of picture to edge of map
+    #: Origin of pixel coordinate system is top left
+    map_width = w - 2 * spacing
+    
+    #: Spherical coordinates
+    radius = map_width / (2) #: Pixel Units
+    latRad = _deg2rad(lat)
+    longRad = _deg2rad(long)
+    #: Conversion to Cartesian (Origin in center of map is tangent point of image plane to sphere surface)
+    
+    #: Note that latitude is polar angle with different starting point and axis direction, therefore convert linearly
+    horizontal = radius * math.sin((math.pi/2) - latRad) * math.sin(longRad)
+    vertical = radius * math.cos((math.pi/2) - latRad)
+    
+    #: Convert from Cartesian coordinate origin to image origin and rightward downward axis directions.
+    x = int(horizontal + w/2)
+    y = int(h/2 - vertical)
+    
+    return x,y
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-m", "--mode", choices = ['flight','test'], required = True, help = "Determine running mode.")
