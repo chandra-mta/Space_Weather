@@ -24,7 +24,7 @@ from astropy.table import Table, unique, vstack, hstack, join
 GOES_DIR = '/data/mta4/Space_Weather/GOES'
 GOES_DATA_DIR = f"{GOES_DIR}/Data"
 GOES_TEMPLATE_DIR = f"{GOES_DIR}/Scripts/Template"
-HTML_GOES_DIR = '/data/mta4/www/RADIATION_new/GOES'
+HTML_GOES_DIR = '/data/mta4/www/RADIATION/GOES'
 ADMIN = ['mtadude@cfa.harvard.edu']
 
 #

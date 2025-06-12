@@ -5,7 +5,7 @@ GOES proton/particle monitoring system for Chandra.
 
 Currently:  dir_list: /data/mta4/Space_Weather/hose_keeping/dir_list
             goes_dir: /data/mta4/Space_Weather/GOES/
-            web_dir:  /data/mta4/www/RADIATION_new/GOES/
+            web_dir:  /data/mta4/www/RADIATION/GOES/
 
 
 Scripts:
@@ -75,9 +75,9 @@ output: <data_dir>/goes_data_r.txt
 
 web address:
 ------------
-http://cxc.cfa.harvard.edu/mta/RADIATION_new/GOES/goes_part_p.html
-http://cxc.cfa.harvard.edu/mta/RADIATION_new/GOES/goes_pchan_p.html
-( /data/mta4/www/RADIATION_new/GOES/)
+http://cxc.cfa.harvard.edu/mta/RADIATION/GOES/goes_part_p.html
+http://cxc.cfa.harvard.edu/mta/RADIATION/GOES/goes_pchan_p.html
+( /data/mta4/www/RADIATION/GOES/)
 
 
 Cron job

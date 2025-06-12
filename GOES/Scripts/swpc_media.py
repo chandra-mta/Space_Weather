@@ -21,7 +21,7 @@ from astropy.table import Table
 #
 #--- Define Directory Pathing
 #
-GOES_MEDIA_DIR = '/data/mta4/www/RADIATION_new/GOES/Media'
+GOES_MEDIA_DIR = '/data/mta4/www/RADIATION/GOES/Media'
 #
 # --- Links to media sources
 #

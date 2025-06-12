@@ -25,7 +25,7 @@ import traceback
 #
 # --- Defining Directory Pathing
 #
-HTML_DIR = "/data/mta4/www/RADIATION_new"
+HTML_DIR = "/data/mta4/www/RADIATION"
 PLOT_DIR = f"{HTML_DIR}/GOES/Plots"
 
 #
