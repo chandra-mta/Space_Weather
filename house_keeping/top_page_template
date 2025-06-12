@@ -19,13 +19,9 @@
         <li> <a href="./Alerts/rad_summ.html"> Chandra Radiation Environment Summary </a></li>
         <li> <a href="./Orbit/orbit.html">CXO current orbital profile</a></li>
         <li> <a href="./ACE//ace.html">ACE</a></li>
-        <!-- <li> <a href="https://cxc.cfa.harvard.edu/mta/ace_fast.html"> ACE - quicklook </a></li> -->
         <li> <a href="./GOES/goes_pchan_p.html">GOES differential proton and HRC proxy</a></li>
         <li> <a href="./GOES/goes_part_p.html">GOES integrated particles and electrons</a></li>
-        <!--
-        <li> <a href="./GOES/goes_pchan_s.html">GOES Secondary</a> (secondary proton,electron magnetometer)</li>
-        <li> <a href="./GOES/goes_part_s.html">GOES Secondary  - electrons and integrated particles</a> </li>
-        -->
+        <li> <a href="./GOES/goes_xray_p.html">GOES Solar Flares >M1 (with active region magnetogram)</a></li>
         <li> <a href="./STEREO/stereo.html">STEREO</a> (IMPACT - low energy protons and electrons)  </li>
         <li> <a href="./XMM/index.html">XMM</a>  Their orbit and radiation environment</li>
         <li> <a href="http://xmm.vilspa.esa.es/external/xmm_obs_info/radmon/index.php"> XMM-Newton Live Radiation Monitor Feed</a></li>
