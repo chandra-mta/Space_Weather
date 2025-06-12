@@ -1,0 +1,16 @@
+#tablediv
+{
+   float:right;
+   padding:10px 10px 10px 10px;
+   width:60%;
+}
+#mapdiv
+{
+   float:left;
+   padding:10px 10px 10px 10px;
+}
+#xray_container
+{
+   display: inline-block;
+   width:100%
+}

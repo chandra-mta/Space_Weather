@@ -1,0 +1,3 @@
+cd /data/mta4/Space_Weather/GOES/Scripts
+
+/data/mta4/Space_Weather/GOES/Scripts/swpc_media.py -m flight

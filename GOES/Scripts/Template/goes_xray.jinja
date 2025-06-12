@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+   <meta charset="UTF-8">
+   <title>GOES-Primary Data: X-ray Flares</title>
+   <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+   <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css">
+   <link rel="stylesheet" href="goes.css">
+   <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+</head>
+<body style="width:95%;margin-left:10px; margin-right;10px;background-color:#FAEBD7;font-family:Georgia, "Times New Roman", Times, serif">
+
+<div style='float:right;'>
+<a href="../../sot.html">SOT home page</a>
+<br />
+<a href="../index.html">Radiation Main Page</a>
+</div>
+
+<h2 style='margin-left:auto;margin-right:auto;'>REALTIME GOES-Primary OBSERVATIONS: X-ray Flares</h2>
+<br>
+
+<div id="xray_container">
+   <div id="mapdiv">
+      <img src="./Media/annotated_sdo_hmi_magnetogram.png" style="margin-right:auto;width:6.75in;justify-self:left">
+   </div>
+   <div id="tablediv">
+      {{ data_table }}
+   </div>
+</div>
+<br>
+<hr>
+
+<div id="coronagraph">  
+   <video width="1204" height="1204" controls style="display:block; margin: 0 auto;">
+   <source src="./Media/ccor1_last_7_days.mp4" type="video/mp4">
+   Your browser does not support the video tag.
+   </video> 
+</div>
+
+<hr>
+
+<hr>
+<div style='float:right;'>
+<a href="../../sot.html">Back to the SOT home page</a>
+<br />
+<a href="../index.html">Back to Radiation Main Page</a>
+</div>
+<a href="https://www.swpc.noaa.gov/">
+<img alt="Space Environment Center" src="../Logos/ssel.gif">
+<br />
+Space Environment Center
+</a>
+
+<hr />
+<p style='padding-top:10px;padding-bottom:20px;'>
+<a href="mailto:william.aaron@cfa.harvard.edu">Email problems to: William Aaron</a>
+</p>
+
+<script type="text/javascript">
+   setTimeout('location.reload()',100000);
+
+    $(document).ready(function () {
+        $('#flare_table').DataTable({
+         "lengthMenu": [ [5, 10, -1], [5,10,"All"] ]
+        });
+    });
+</script>
+
+</body>
+</html>
+
