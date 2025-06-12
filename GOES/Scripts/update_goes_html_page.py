@@ -17,7 +17,7 @@ import traceback
 import getpass
 from jinja2 import Environment, FileSystemLoader
 from astropy.io import ascii
-from astropy.table import Table, unique, vstack, hstack, join
+from astropy.table import Table, join
 #
 #--- Define Directory Pathing
 #
