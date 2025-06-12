@@ -1,0 +1,1 @@
+/proj/sot/ska3/flight/bin/skare /bin/tcsh  < /data/mta4/Space_Weather/GOES/Scripts/pull_swpc_media_main_script
