@@ -2,10 +2,10 @@
 <html>
 <head>
    <meta charset="UTF-8">
-   <title>GOES-Primary Data: X-ray flares</title>
-   <link rel="stylesheet" href="goes.css">
+   <title>GOES-Primary Data: X-ray Flares</title>
    <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
    <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css">
+   <link rel="stylesheet" href="goes.css">
    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
 </head>
 <body style="width:95%;margin-left:10px; margin-right;10px;background-color:#FAEBD7;font-family:Georgia, "Times New Roman", Times, serif">
@@ -16,22 +16,22 @@
 <a href="../index.html">Radiation Main Page</a>
 </div>
 
-<h2 style='margin-left:auto;margin-right:auto;'>REALTIME GOES-Primary OBSERVATIONS: X-ray flares</h2>
+<h2 style='margin-left:auto;margin-right:auto;'>REALTIME GOES-Primary OBSERVATIONS: X-ray Flares</h2>
 <br>
 
 <div id="xray_container">
-   <div id="tablediv">
-   {{ data_table }}
+   <div id="mapdiv">
+      <img src="./Media/annotated_sdo_hmi_magnetogram.png" style="margin-right:auto;width:6.75in;justify-self:left">
    </div>
-   <div id="mapdiv" style='text-align:center;padding-top:10px;padding-bottom:10px;'>
-      <img src="./Media/synoptic-map.jpg" style="margin-left:auto;margin-right:text-align:center;auto;width:6.75in;">
+   <div id="tablediv">
+      {{ data_table }}
    </div>
 </div>
 <br>
 <hr>
 
-<div id="coronagraph">
-   <video width="1204" height="1204" controls>
+<div id="coronagraph">  
+   <video width="1204" height="1204" controls style="display:block; margin: 0 auto;">
    <source src="./Media/ccor1_last_7_days.mp4" type="video/mp4">
    Your browser does not support the video tag.
    </video> 

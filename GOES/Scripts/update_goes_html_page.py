@@ -352,6 +352,9 @@ def make_xray_table(xlink, eventlink):
     :NOTE: This is written slightly differently compared to the other GOES pages to benefit form astropy functionality
     """
     flare_table = Table(rows=_read_json(xlink))
+    #: Only select and compare noteworthy flares
+    sel = flare_table['max_class'] > 'M1'
+    flare_table = flare_table[sel]
     event_table = Table(rows=_read_json(eventlink))
     #
     # --- Flare table contains the notable observed x-ray events by GOES
@@ -359,7 +362,7 @@ def make_xray_table(xlink, eventlink):
     #
     sel = np.zeros(len(event_table), dtype=bool)
     for idx, row in enumerate(event_table):
-        for flare_row in flare_table['time_tag', 'satellite']:
+        for flare_row in flare_table:
             if row['begin_datetime'] == flare_row['time_tag'][:-1] and row['observatory'] == f"G{flare_row['satellite']}":
                 sel[idx] = True
     #
@@ -368,39 +371,43 @@ def make_xray_table(xlink, eventlink):
     flare_matching_events = event_table[sel]
     flare_matching_events.rename_column('begin_datetime','time_tag')
     flare_matching_events['time_tag'] = [f"{x}Z" for x in flare_matching_events['time_tag']]
-
-    flare_table = join(flare_table, flare_matching_events['time_tag', 'region'], join_type='left')
     #
-    # --- Event might not list the AR (Listed as None), or it might not match with flare_table (Listed as np.ma.masked)
-    # --- Make Mapping uniform and create class_letter column
+    # --- If no flares are present which match the needed criteria, then we return an empty string
+    # --- and we don't overwrite the data storage of previous flare table.
     #
-    flare_table['region'] = flare_table['region'].tolist()
-    #
-    #--- Save table to GOES Data
-    #
-    ascii.write(flare_table,
-            format='csv',
-            output=f'{GOES_DATA_DIR}/flare_table_7_days.csv',
-            overwrite=True,
-           )
-    #
-    # --- Generate html table for webpage.
-    #
-    table = "<table id='flare_table' class='display'><thead><tr><th>Time at Maximum</th><th>Maximum Class</th><th>Region</th></tr></thead>"
-    for row in flare_table:
-        table += f"<tr><td>{row['max_time']}</td><td>{row['max_class']}</td><td>{row['region'] if row['region'] is not None else '----'}</td></tr>"
-    table += "</table>"
-
+    if len(flare_table) == 0 and len(flare_matching_events) == 0:
+        table = "<p style='font-size:35px;'><b>No Notable Solar Flares</b></p>"
+        table += "<table id='flare_table' class='display'><thead><tr><th>Time at Maximum</th><th>Maximum Class</th><th>Region</th></tr></thead>"
+        table += "</table>"
+    else:
+        flare_table = join(flare_table, flare_matching_events['time_tag', 'region'], join_type='left')
+        #
+        # --- Event might not list the AR (Listed as None), or it might not match with flare_table (Listed as np.ma.masked)
+        # --- Make Mapping uniform and create class_letter column
+        #
+        flare_table['region'] = flare_table['region'].tolist()
+        #
+        #--- Save table to GOES Data
+        #
+        ascii.write(flare_table,
+                format='csv',
+                output=f'{GOES_DATA_DIR}/flare_table_7_days.csv',
+                overwrite=True,
+            )
+        #
+        # --- Generate html table for webpage.
+        #
+        table = "<table id='flare_table' class='display'><thead><tr><th>Time at Maximum</th><th>Maximum Class</th><th>Region</th></tr></thead>"
+        for row in flare_table:
+            table += f"<tr><td>{row['max_time']}</td><td>{row['max_class']}</td><td>{row['region'] if row['region'] is not None else '----'}</td></tr>"
+        table += "</table>"
     return table
-
 
 def _read_json(link):
     """Generalized json file reader
 
     :param link: URL or file path
     :type link: str
-    :return: _description_
-    :rtype: _type_
     """
     if os.path.isfile(link):
         with open(link) as f:
@@ -547,7 +554,7 @@ def compute_pre2020_hrc(data):
             val = 6000 * p5p6[k] + 270000 * p7[k] + 100000 * p8abc[k]
             if p5p6[k] < 0 or p7[k] < 0 or p8abc[k] < 0:
                 val = -1e5 #: Missing a channel value
-        except:
+        except IndexError:
             val = -1e5 #: Missing a channel value
         hrc.append(val)
     return hrc
@@ -629,6 +636,10 @@ if __name__ == "__main__":
 
         if args.json:
             DLINK = args.json
+        
+        #: Refresh GOES css
+        os.system(f"cp {GOES_TEMPLATE_DIR}/goes.css {HTML_GOES_DIR}")
+
         update_goes_html_page()
     elif args.mode == "flight":
 #

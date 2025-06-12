@@ -49,14 +49,14 @@ def swpc_media():
     img = Image.open(f"{GOES_MEDIA_DIR}/{os.path.basename(urlparse(MAGNETOGRAM_MAP).path)}")
     annotated_img = img.copy()
     w,h = annotated_img.size
-    font = ImageFont.truetype("DejaVuSans-Bold.ttf", 40)
+    font = ImageFont.truetype("DejaVuSans-Bold.ttf", 46)
     draw = ImageDraw.Draw(annotated_img)
     #: Annotate the magnetogram image with the active region locations
     for region in todays_regions:
         lat = region['latitude']
         long = -region['longitude']
         x,y = _to_pixel(w,h,lat,long)
-        draw.text((x-112,y+38),str(region['region']), fill='white', font=font)
+        draw.text((x-112,y+48),str(region['region']), fill='white', font=font)
     
     annotated_img.save(f"{GOES_MEDIA_DIR}/annotated_sdo_hmi_magnetogram.png")
     annotated_img.close()
