@@ -163,10 +163,11 @@ def main():
     intg_fig.savefig(_intg_plot, format="png", dpi=300)
     plt.close(intg_fig)
 
-def group_avg(table, group_info, factor = 1e3):
+def group_avg(table, group_info, factor = 1):
     """
     Calculate the differential channel grouping average column
-    :Note: Group Info is in MeV, therefore factor converts flux KeV -> MeV
+    :Note: Factor is present to help convert the input flux into MeV as needed. 
+        Group Info is in MeV. Normal operation GOES differential protons stores in MeV units.
     """
     #
     # --- Initialize a fully-false zeroed masked array for the averages

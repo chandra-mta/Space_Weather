@@ -15,16 +15,27 @@ import signal
 from datetime import datetime, timedelta
 from subprocess import PIPE, Popen
 from time import sleep
-import traceback
-import urllib.request
-import urllib.error
-import json
 import numpy as np
 import argparse
 from jinja2 import Environment, FileSystemLoader
 from astropy.io import ascii
 from pathlib import Path
 import psutil
+# Web JSON
+import json
+import urllib.request
+# Error handling
+import urllib.error
+import http.client
+import traceback
+#
+# --- Error handling
+#
+RETRYABLE_EXCEPTIONS = (
+    json.decoder.JSONDecodeError,
+    urllib.error.URLError,
+    http.client.IncompleteRead
+)
 #
 #--- Define Directory Pathing
 #
@@ -395,7 +406,7 @@ def rerun(func):
     Function decorator which sleeps and reruns the provided function upon encountering a set of errors.
     """
     _freq = 3
-    _errors = (json.decoder.JSONDecodeError, urllib.error.URLError)
+    _errors = RETRYABLE_EXCEPTIONS
     def wrapper_func(*args,**kwargs):
         _last_exception = Exception()
         for i in range(_freq):
@@ -678,7 +689,8 @@ if __name__ == "__main__":
             f.write(str(pid))
         try:
             update_goes_html_page()
-        except json.decoder.JSONDecodeError:
+        except RETRYABLE_EXCEPTIONS:
+            #: Continued retry still encountered error after three times. Record latest instance and just skip current run.
             traceback.print_exc()
         #: Remove lock file once process is completed
         os.remove(lock)
