@@ -130,7 +130,7 @@ def main():
     diff_data_dict["units"] = "p/cm2-s-sr-MeV"
     diff_data_dict["title"] = "Proton Flux (Differential)"
     diff_data_dict["labels"] = [
-        f"{x.min}-{x.max} Mev" for x in DIFF_GROUP_SELECTION
+        f"{x.min}-{x.max} MeV" for x in DIFF_GROUP_SELECTION
     ]
     diff_data_dict["colors"] = ["fuchsia", "green", "blue"]
     diff_data_dict["limits"] = {"y_min": 1e-4, "y_max": 1e4}
