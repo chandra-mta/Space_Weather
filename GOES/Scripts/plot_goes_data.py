@@ -49,7 +49,7 @@ BAND_LIMITS = {
 
 
 class GroupInfo:
-    """Stores info used in averaging differential flux data from GOES energy band channels into an ACE energy band channel format."""
+    """Stores info used in averaging differential flux data from GOES energy band channels into channels that represent Legacy GOES channels."""
 
     def __init__(self, channel_tuple):
         """Initialize a GroupInfo object
@@ -60,14 +60,14 @@ class GroupInfo:
         self.channel_tuple = channel_tuple
         lims = []
         for channel in self.channel_tuple:
-            lims = lims + list(BAND_LIMITS[channel].values()) #: Determine minimum and maximum energy values across channel selection
+            lims = lims + list(BAND_LIMITS[channel].values()) #: Determine minimum and maximum energy values across channel selection.
         self.min = min(lims)
         self.max = max(lims)
         self.weights = []
         for channel in self.channel_tuple:
             self.weights.append(
                 round(BAND_LIMITS[channel]["max"] - BAND_LIMITS[channel]["min"], 2)
-            ) #: Determines weight used in averaging algorithm converting GOES energy bands into ACE energy bands
+            ) #: Determines weight used in averaging algorithm converting GOES energy bands into Legacy GOES channels.
     def __repr__(self):
         return f"GroupInfo(channels={self.channel_tuple!r}, min={self.min!r}, max={self.max!r})"
 
@@ -75,7 +75,7 @@ DIFF_GROUP_SELECTION = [
     GroupInfo(("P1", "P2A", "P2B")),
     GroupInfo(("P3", "P4")),
     GroupInfo(("P7", "P8A")),
-]  #: Differential Group Selection by channel. Determined by Band Limits to mimic ACE channels.
+]  #: Differential Group Selection by channel. Determined by Band Limits to mimic Legacy GOES channels.
 
 ALL_DIFF_CHANNEL = set()
 for x in DIFF_GROUP_SELECTION:
