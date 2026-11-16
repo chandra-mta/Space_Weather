@@ -1,0 +1,333 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Solar-1 STIS Ions</title>
+
+<script src="https://cdn.plot.ly/plotly-3.3.0.min.js"></script>
+
+<style>
+    body { font-family: Arial, sans-serif; }
+    #ionPlot { width: 100%; height: 70vh; min-height: 500px; }
+    #ionPlot .legend .traces .legendpoints {display: none;} 
+
+    /* Color P1-P8 legend labels */
+    #ionPlot .legend .traces:nth-child(1) .legendtext { fill: #1f77b4 !important; }
+    #ionPlot .legend .traces:nth-child(2) .legendtext { fill: #ff7f0e !important; }
+    #ionPlot .legend .traces:nth-child(3) .legendtext { fill: #2ca02c !important; }
+    #ionPlot .legend .traces:nth-child(4) .legendtext { fill: #d62728 !important; }
+    #ionPlot .legend .traces:nth-child(5) .legendtext { fill: #9467bd !important; }
+    #ionPlot .legend .traces:nth-child(6) .legendtext { fill: #8c564b !important; }
+    #ionPlot .legend .traces:nth-child(7) .legendtext { fill: #e377c2 !important; }
+    #ionPlot .legend .traces:nth-child(8) .legendtext { fill: #7f7f7f !important; }  
+
+    /* Solar-1 P3 unified hover text: green */
+    #ionPlot .hoverlayer .legend .traces:nth-child(1) .legendtext {
+        fill: #2ca02c !important;
+    }
+
+    /* ACE P3 unified hover text: black */
+    #ionPlot .hoverlayer .legend .traces:nth-child(2) .legendtext {
+        fill: black !important;
+    }
+</style>
+</head>
+
+<body>
+
+<div style="font-size: 24px; margin-top: 10px; margin-left: 120px; line-height: 1.6;">
+    Realtime Solar-1 observations (source <a href="https://www.spaceweather.gov/products/solar-wind?layout=ions" target="_blank">NOAA</a>)
+</div>
+    
+<div id="ionPlot"></div>
+
+<div id="updateStatus" style="font-size: 18px; font-style: italic; margin-left: 120px; color: black;"></div>
+
+<div style="font-size: 16px; margin-top: 30px; margin-left: 120px; line-height: 1.6;">
+    <b>Plot interactions:</b><br>
+    &#10148; Hover to display ACE p3: 115-193 keV.<br>
+    &#10148; Single-click in the plot area to toggle ACE P3 trace visibility.<br>
+    Single-click a legend label to show or hide its data trace.<br>
+    Double-click a legend label to display only that trace.<br>
+    Single-click again to restore a hidden trace.<br>
+    Double-click again to restore all traces.<br>
+    Click the "reset axes" icon (a "house" in the upper right corner) to revert to the original axes after a zoom.<br><br>
+    <b>The black horizontal solid line</b> coresponds to ACE P3 flux that results in a 2-hour fluence of 3.6 x 10<sup>8</sup> particles&nbsp;/&nbsp;(cm<sup>2</sup>&nbsp;st&nbsp;MeV).
+</div>
+
+<script>
+
+    const plotDiv = document.getElementById("ionPlot");
+    let initialized = false;
+    let updating = false;
+    let aceTraceIndex = null;
+    let acePinned = false;
+  
+    async function updatePlot() {
+
+        if (updating) return;
+        updating = true;
+
+        try {
+            const response = await fetch(
+                "solar-1-protons.json",
+                {cache: "no-store"}
+            );
+
+            if (!response.ok) throw new Error(response.status);
+
+            const data = await response.json();        
+            const ions = data.ions;
+
+            if (!initialized) {
+
+                const traces = ions.channels.map((ch, i) => ({
+                    x: data.time,
+                    y: ions.flux[ch],
+                    name: ch + ": " + ions.labels[i],
+                    type: "scattergl",
+                    mode: "markers",
+                    marker: {
+                        color: ions.colors[i],
+                        size: 3,
+                        opacity: 0.6
+                    },
+                    hoverinfo: ch === "p3" ? "all" : "skip",
+                    hovertemplate: ch === "p3"
+                        ? "%{y:.2e}<extra>Solar-1 P3</extra>"
+                        : undefined,
+                    showlegend: true
+                }));
+
+                traces.push({
+                    x: data.ace.time,
+                    y: data.ace.p3,
+                    name: "ACE P3",
+                    type: "scattergl",
+                    mode: "markers",
+                    marker: {
+                        color: "black",
+                        size: 3,
+                        opacity: 0.6
+                    },
+                    hovertemplate: "%{y:.2e}<extra>ACE P3</extra>",
+                    visible: false,
+                    showlegend: false
+                });            
+
+                // Save the ACE trace index for subsequent updates
+                aceTraceIndex = traces.length - 1;
+                
+                const startDate = data.time[0] || "";
+
+                const layout = {
+                    font: {size: 12},
+
+                    annotations: [
+                        {
+                            text: "<b><i>Start Date: " +
+                                  startDate.replace("T", " ").replace("Z", " UTC") +
+                                  "</i></b>",
+                            x: 1,
+                            y: 1.08,
+                            xref: "paper", yref: "paper",
+                            xanchor: "right",
+                            font: {size: 18, color: "black"},
+                            showarrow: false
+                        },
+                        {
+                            text: "<b><i>Solar-1 STIS Ions",
+                            x: 0,
+                            y: 1.08,
+                            xref: "paper", yref: "paper",
+                            xanchor: "left",
+                            font: {size: 18, color: "black"},
+                            showarrow: false
+                        }
+                    ],
+
+                    xaxis: {
+                        title: {
+                            text: "UTC (DOY)",
+                            font: {color: "black", size: 16}
+                        },
+                        tickfont: {size: 15, color: "black"},
+                        type: "date",
+                        tickformat: "%j",
+                        unifiedhovertitle: {
+                            text: "%{x|%j %H:%M:%S UTC}"
+                        },                        
+                        range: [
+                            data.time[0],
+                            data.time.at(-1)
+                        ],
+                        ticks: "inside",
+                        ticklen: 8,
+                        tickwidth: 1,
+                        tickcolor: "black",
+                        dtick: 86400000, // major ticks every 24 hours
+                        // Minor ticks every 6 hours, without labels
+                        minor: {
+                            dtick: 7200000,
+                            ticks: "inside",
+                            ticklen: 4,
+                            tickwidth: 1,
+                            tickcolor: "black",
+                        },
+                        autorange: false,
+                        showline: true,
+                        linecolor: "black",
+                        linewidth: 1,
+                        mirror: true,
+                        showgrid: false,
+                        automargin: true
+                    },
+
+                    yaxis: {
+                        title: {
+                            text: "Protons / (cm<sup>2</sup> s sr MeV)",
+                            font: {color: "black", size: 16}
+                        },
+                        tickfont: {size: 12, color: "black"},
+                        type: "log",
+                        range: [-2, 6],
+                        autorange: false,
+                        dtick: 1,
+                        exponentformat: "power",
+                        showexponent: "all",
+                        showline: true,
+                        linecolor: "black",
+                        linewidth: 1,
+                        mirror: true,
+                        showgrid: true,
+                        griddash: "dot",
+                        gridcolor: "#999",
+                        automargin: true
+                    },
+
+                    legend: {
+                        orientation: "h",
+                        x: 0.03,
+                        xanchor: "left",
+                        y: 1.0,
+                        yanchor: "top",
+                        font: {size: 13, weight: "bold"},
+                        bgcolor: "rgba(255, 255, 255, 0.8)"
+                    },
+
+                    shapes: [{
+                        type: "line",
+                        xref: "paper",
+                        x0: 0,
+                        x1: 1,
+                        yref: "y",
+                        y0: 50000,
+                        y1: 50000,
+                        line: {
+                            color: "black",
+                            width: 2,
+                            dash: "solid"
+                        }
+                    }],
+                
+                    margin: {l: 110, r: 25, t: 110, b: 90},
+
+                    hovermode: "x unified",
+                };
+
+                await Plotly.newPlot(plotDiv, traces, layout, {
+                    responsive: true,
+                    modeBarButtonsToRemove: ["pan2d", "select2d", "lasso2d", "autoScale2d"]
+                });
+
+                document.getElementById("updateStatus").textContent =
+                    "Last successful refresh: " + new Date().toISOString();
+
+                // Display ACE P3 while hovering
+                plotDiv.addEventListener("mouseenter", () => {
+                    Plotly.restyle(plotDiv, {visible: true}, [aceTraceIndex]);
+                });
+
+                // Hide ACE P3 when leaving, unless pinned
+                plotDiv.addEventListener("mouseleave", () => {
+                    if (!acePinned) {
+                        Plotly.restyle(plotDiv, {visible: false}, [aceTraceIndex]);
+                    }
+                });            
+
+                // Click to toggle permanent ACE P3 display
+                plotDiv.addEventListener("click", () => {
+                    acePinned = !acePinned;
+
+                    Plotly.restyle(plotDiv, {
+                        visible: acePinned || plotDiv.matches(":hover")
+                    }, [aceTraceIndex]);
+                });
+                
+                initialized = true;
+
+            } else {
+
+                // Update all existing traces without recreating plot
+                const xValues = ions.channels.map(() => data.time);
+                const yValues = ions.channels.map(ch => ions.flux[ch]);
+
+                // Solar-1 trace indices: 0-7
+                const traceIndices = ions.channels.map((_, i) => i);
+
+                // Append ACE P3 (trace 8)
+                xValues.push(data.ace.time);
+                yValues.push(data.ace.p3);
+                traceIndices.push(aceTraceIndex);
+
+                const startDate = data.time[0] || "";
+
+                // Update all traces and layout together
+                await Plotly.update(
+                    plotDiv,
+                    {
+                        x: xValues,
+                        y: yValues
+                    },
+                    {
+                        "xaxis.range": [
+                            data.time[0],
+                            data.time.at(-1)
+                        ],
+                        "annotations[0].text":
+                            "<b><i>Start Date: " +
+                            startDate.replace("T", " ").replace("Z", " UTC") +
+                            "</i></b>"
+                    },
+                    traceIndices
+                );
+
+                document.getElementById("updateStatus").textContent =
+                    "Last successful refresh: " + new Date().toISOString();
+
+            }
+
+        } catch (error) {
+            console.error("Solar-1 update failed:", error);
+
+            document.getElementById("updateStatus").textContent =
+                "Data refresh failed: " + error.message;            
+        } finally {
+            updating = false;
+        }
+    }
+
+    updatePlot();
+    //setInterval(updatePlot, 300000); // milliseconds = 5 minutes
+    setInterval(updatePlot, 60000); // milliseconds = 1 minute
+    //setInterval(updatePlot, 30000); // milliseconds = 0.5 minutes = 30 sec for testing
+
+    document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) updatePlot();
+    });
+
+</script>
+
+</body>
+</html>
