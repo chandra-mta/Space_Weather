@@ -270,7 +270,7 @@ def make_diff_table():
     line = line + '\tHRC Proxy is defined as:\n\n'
     line = line + '\tHRC Proxy  = 143 * P5 + 64738 * P6 + 162505 * P7 + 4127\n\n'
 
-    line = line + '\tHRC Proxy Legacy is defined as:\n\n'
+    line = line + '\tHRC Proxy Legacy (for GOES satellites preceding GOES-16) is defined as:\n\n'
     line = line + '\tHRC Proxy Legacy = 6000 * P5P6 + 270000 * P7 + 100000 * P8ABC\n\n'
     line = line + '\twhere P5P6 is a combination of P5 and P6 and P8ABC is a combination of P8A, P8B, and P8C.\n'
 
