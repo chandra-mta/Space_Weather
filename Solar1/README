@@ -1,10 +1,14 @@
 Solar-1 monitoring, a prototype version
 ---------------------------------------
 
-Fetch from NOAA  and display Solar-1 proton data for the eight channels
+Fetch from NOAA and display Solar-1 proton data for the eight channels
 with energies corresponding to those of the ACE proton channels.
 
+Calculate, store, and plot Solar-1 P3 2-hour fluence.
+
 Fetch ACE P3 from the local 7-day MTA archive and display for comparison.
+
+Calculate and display ACE P3  2-hour fluence.
 
 WORKFLOW
 ---------
@@ -15,37 +19,42 @@ WORKFLOW
   data covering the last overlap_minutes (5 minutes by default), merge with the
   data from the history, remove duplicates by keeping the most recent entries.
 - Save the updated history covering dt_hours to the parquet file.
+- Calculate Solar-1 P3 2-hour fluence and save it in fluence_history.parquet file.
 - Load ACE P3 data from the local MTA 7-day archive.
-- Publish both the Solar-1 data and the ACE P3 data to a json file.
+- Calculate ACE P3 2-hour fluence.
+- Publish the Solar-1 data, the ACE P3 data, and Solar-1 fluence to a json file.
 - The html file reads in and visualizes the data stored in the json file.
 - Crontab calls the job with flock that prevents multiple instances of a process
   from running at the same time by the means of a lock file in the /tmp directory,
   and with timeout that kills the process after a certain time (here 50 seconds).
 
-
 SETUP
 ----------
 
-Place solar1.py in SPACE_WEATHER=/data/mta4/Space_Weather/Solar-1
+Place solar1.py and fluence.py in SPACE_WEATHER=/data/mta4/Space_Weather/Solar-1
 Place solar1.html in SPACE_WEATHER_WEB=/data/mta4/www/Solar-1
 
-New MTA cronjob:
+If proton_history.parquet and fluence_history.parquet files are available,
+place them in the directory of the *.py files. Otherwise, the history files
+will be created from scratch.
+
+MTA cronjob:
 
 * * * * * /usr/bin/flock -n /tmp/solar1.lock /usr/bin/timeout 50s ${ENV_FLIGHT}/bin/skare python ${SPACE_WEATHER}/Solar-1/solar1.py >> ${HOME}/Logs/solar1_log.cron 2>&1
 
 OUTPUT
 ------
-The following file(s) will appear in SPACE_WEATHER/Solar-1:
+The following file(s) will appear (or will be updated) in SPACE_WEATHER/Solar-1:
 - proton_history.parquet
+- fluence_history.parquet
 
 The following file(s) will appear in SPACE_WEATHER_WEB/Solar-1:
 - solar-1-protons.json
 
-
 Log file with execution info, warnings, and errors:
 - /home/mta/Logs/solar1_log.cron
 
-A lock file will be placed in /tmp (managed with flock).
+Lock file will be placed in /tmp (managed with flock).
 
 View: https://cxc.harvard.edu/mta/RADIATION/Solar-1/solar1.html
 
@@ -55,3 +64,4 @@ TODO
   and fill values
 - No "test" or "flight" input parameters in solar1.py
 - Unify naming convention (solar1, Solar1, Solar-1)
+- Add alerting on 2-hour P3 fluence
