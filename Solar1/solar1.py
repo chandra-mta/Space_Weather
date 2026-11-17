@@ -8,6 +8,7 @@ import requests
 import logging
 from pathlib import Path
 import argparse
+from fluence import calculate_p3_fluence
 
 logging.basicConfig(
     level=logging.INFO,
@@ -17,11 +18,15 @@ logging.basicConfig(
 logging.Formatter.converter = time.gmtime
 
 SPACE_WEATHER = Path(os.getenv("SPACE_WEATHER", "/data/mta4/Space_Weather"))
+
 SPACE_WEATHER_WEB = Path(os.getenv("SPACE_WEATHER_WEB", "/data/mta4/www/RADIATION"))
+#SPACE_WEATHER_WEB = Path(os.getenv("SPACE_WEATHER_WEB", "/data/mta4/malgosia"))
+
 JSON_FILE = SPACE_WEATHER_WEB / "Solar-1" / "solar-1-protons.json"
 
 BASE_DIR = Path(__file__).resolve().parent
 PARQUET_FILE = BASE_DIR / "proton_history.parquet"
+FLUENCE_PARQUET_FILE = BASE_DIR / "fluence_history.parquet"
 
 ACE_FILE = SPACE_WEATHER / "ACE" / "Data" / "ace_7day_archive"
 
@@ -53,6 +58,10 @@ ION_SPECS = {
         "1847-5263 keV"
     ]
 }
+
+# For fluence, 2 hours
+WINDOW_MINUTES = 120
+
 
 def load_ace_p3(filename):
     """
@@ -88,7 +97,11 @@ def load_ace_p3(filename):
     # Extract P3 and use UTC datetime as index
     df["p3"] = pd.to_numeric(df["p3"], errors="coerce")
 
-    return df.set_index("datetime")[["p3"]].sort_index()
+    df = df.set_index("datetime")[["p3"]].sort_index()
+
+    df = df[~df.index.duplicated(keep="last")]
+
+    return df
 
 
 def load_proton_history():
@@ -99,7 +112,7 @@ def load_proton_history():
     """
     if os.path.exists(PARQUET_FILE):
         return pd.read_parquet(PARQUET_FILE)
-    return pd.DataFrame()   
+    return pd.DataFrame()
 
 
 def update_proton_data(df_history, dt_hours, overlap_minutes, timeout=30):
@@ -145,16 +158,16 @@ def update_proton_data(df_history, dt_hours, overlap_minutes, timeout=30):
     logging.info(
         "Fetching recent Solar-1 data: %s to %s (%.1f minutes)",
         start, stop, (stop - start).total_seconds() / 60
-    )    
-    
+    )
+
     df_new = fetch_suprathermal_ions_and_electrons(start, stop, timeout)
 
     logging.info("Downloaded records: %d", len(df_new))
-    
+
     if df_history.empty and df_new.empty:
         logging.warning("No Solar-1 measurements available")
         return df_history
-    
+
     if not df_new.empty:
         # Merge existing and new observations
         df_history = pd.concat([df_history, df_new])
@@ -163,7 +176,7 @@ def update_proton_data(df_history, dt_hours, overlap_minutes, timeout=30):
         df_history = df_history[~df_history.index.duplicated(keep="last")]
 
         logging.info("Merged records: %d", len(df_history))
-    
+
     # Construct complete one-minute UTC time grid
     full_index = pd.date_range(
         start=requested_start.ceil("min"),
@@ -199,7 +212,7 @@ def fetch_suprathermal_ions_and_electrons(start, stop, timeout):
     stop : datetime or pandas.Timestamp
         End of the requested measurement interval, in UTC.
     timeout : int or float
-        Maximum time in seconds to wait for the NOAA HTTP response.    
+        Maximum time in seconds to wait for the NOAA HTTP response.
     """
 
     params = {
@@ -227,7 +240,7 @@ def fetch_suprathermal_ions_and_electrons(start, stop, timeout):
                "de4", # 169-333 keV, ACE: 175-315 keV
                "quality",
                "source"]
-    
+
     empty_df = pd.DataFrame(columns=columns)
     empty_df.index = pd.DatetimeIndex([], name="datetime", tz="UTC")
 
@@ -269,7 +282,7 @@ def fetch_suprathermal_ions_and_electrons(start, stop, timeout):
         raise RuntimeError("NOAA HAPI data parsing failed") from e
 
 
-def save_protons_json(df, df_ace):
+def save_protons_json(df, df_ace, p3_fluence, df_fluence):
     """
     Export Solar-1 differential proton flux data and ACE P3 for Plotly.js.
     """
@@ -300,7 +313,17 @@ def save_protons_json(df, df_ace):
             "p3": df_ace["p3"].astype(object)
                              .where(pd.notna(df_ace["p3"]), None)
                              .tolist()
-        }
+        },
+        "p3_fluence": p3_fluence,
+        "fluence_history": {
+            "time": [
+                t.isoformat().replace("+00:00", "Z")
+                for t in df_fluence.index
+            ],
+            "solar1": df_fluence["fluence"].astype(object)
+                                 .where(pd.notna(df_fluence["fluence"]), None)
+                                 .tolist()
+            }
     }
 
     # Write complete JSON to temporary file, then replace
@@ -313,13 +336,49 @@ def save_protons_json(df, df_ace):
     os.replace(temp_file, JSON_FILE)
 
 
+def update_fluence_history(fluence_result, dt_hours):
+    """
+    Append the latest Solar-1 P3 fluence estimate to a rolling history.
+    Preserve previously calculated values without recalculation.
+    """
+
+    timestamp = pd.Timestamp(fluence_result["end_time"])
+    fluence = fluence_result["fluence"]
+
+    if FLUENCE_PARQUET_FILE.exists():
+        df = pd.read_parquet(FLUENCE_PARQUET_FILE)
+    else:
+        df = pd.DataFrame(
+            {"fluence": pd.Series(dtype=float)},
+            index=pd.DatetimeIndex([], name="datetime", tz="UTC")
+        )
+
+    # Append only if this timestamp has not been recorded
+    if timestamp not in df.index:
+        df.loc[timestamp, "fluence"] = fluence
+
+    # Keep only the requested rolling history
+    cutoff = timestamp - timedelta(hours=dt_hours)
+    df = df.loc[df.index >= cutoff].sort_index()
+
+    # Save atomically
+    temp_file = FLUENCE_PARQUET_FILE.with_name(
+        FLUENCE_PARQUET_FILE.name + ".tmp"
+    )
+
+    df.to_parquet(temp_file)
+    os.replace(temp_file, FLUENCE_PARQUET_FILE)
+
+    return df
+
+
 def production_update(dt_hours, overlap_minutes):
     """
     Fetch Solar-1 and ACE P3 measurements, maintain rolling history,
     and publish JSON for Plotly.js.
 
     Parameters
-    ----------    
+    ----------
     dt_hours : float
         Duration of the rolling historical data window, in hours.
     overlap_minutes : float
@@ -335,6 +394,11 @@ def production_update(dt_hours, overlap_minutes):
     if df_history.empty:
         return
 
+    solar1_p3_fluence = calculate_p3_fluence(df_history["p3"], WINDOW_MINUTES)
+
+    # Maintain rolling history of calculated Solar-1 P3 fluence
+    df_fluence = update_fluence_history(solar1_p3_fluence, dt_hours)
+
     # Save Solar-1 history for recovery after restart
     df_history.to_parquet(PARQUET_FILE)
 
@@ -346,9 +410,16 @@ def production_update(dt_hours, overlap_minutes):
         (df_ace.index >= df_history.index.min()) &
         (df_ace.index <= df_history.index.max())
     ]
-    
+
+    ace_p3_fluence = calculate_p3_fluence(df_ace["p3"], WINDOW_MINUTES)
+
+    p3_fluence = {
+        "solar1": solar1_p3_fluence,
+        "ace": ace_p3_fluence
+    }
+
     # Publish combined JSON for Plotly.js
-    save_protons_json(df_history, df_ace)
+    save_protons_json(df_history, df_ace, p3_fluence, df_fluence)
 
     logging.info(
         "Updated %d Solar-1 records, latest: %s",
@@ -387,5 +458,5 @@ if __name__ == "__main__":
 
     if not 0 <= args.overlap_minutes < args.dt_hours * 60:
         parser.error("--overlap_minutes must be non-negative and shorter than dt_hours")
-    
+
     main(args.dt_hours, args.overlap_minutes)

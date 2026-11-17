@@ -20,7 +20,7 @@
     #ionPlot .legend .traces:nth-child(5) .legendtext { fill: #9467bd !important; }
     #ionPlot .legend .traces:nth-child(6) .legendtext { fill: #8c564b !important; }
     #ionPlot .legend .traces:nth-child(7) .legendtext { fill: #e377c2 !important; }
-    #ionPlot .legend .traces:nth-child(8) .legendtext { fill: #7f7f7f !important; }  
+    #ionPlot .legend .traces:nth-child(8) .legendtext { fill: #7f7f7f !important; }
 
     /* Solar-1 P3 unified hover text: green */
     #ionPlot .hoverlayer .legend .traces:nth-child(1) .legendtext {
@@ -30,6 +30,13 @@
     /* ACE P3 unified hover text: black */
     #ionPlot .hoverlayer .legend .traces:nth-child(2) .legendtext {
         fill: black !important;
+    }
+
+    /* Fluence history */
+    #fluencePlot {
+        width: 100%;
+        height: 40vh;
+        min-height: 200px;
     }
 </style>
 </head>
@@ -42,9 +49,13 @@
     
 <div id="ionPlot"></div>
 
-<div id="updateStatus" style="font-size: 18px; font-style: italic; margin-left: 120px; color: black;"></div>
+<div id="fluencePlot"></div>
 
-<div style="font-size: 16px; margin-top: 30px; margin-left: 120px; line-height: 1.6;">
+<div id="updateStatus" style="font-size: 16px; font-style: italic; margin-left: 120px; margin-top: 30px; color: black;"></div>
+
+<div id="fluenceDisplay" style="font-size: 16px; margin-left: 120px; margin-top: 30px;"></div>
+
+<div style="font-size: 16px; margin-left: 120px; margin-top: 30px; line-height: 1.6;">
     <b>Plot interactions:</b><br>
     &#10148; Hover to display ACE p3: 115-193 keV.<br>
     &#10148; Single-click in the plot area to toggle ACE P3 trace visibility.<br>
@@ -53,7 +64,7 @@
     Single-click again to restore a hidden trace.<br>
     Double-click again to restore all traces.<br>
     Click the "reset axes" icon (a "house" in the upper right corner) to revert to the original axes after a zoom.<br><br>
-    <b>The black horizontal solid line</b> coresponds to ACE P3 flux that results in a 2-hour fluence of 3.6 x 10<sup>8</sup> particles&nbsp;/&nbsp;(cm<sup>2</sup>&nbsp;st&nbsp;MeV).
+    <b>The dashed black horizontal line</b> coresponds to ACE P3 flux that results in a 2-hour fluence of 3.6 x 10<sup>8</sup> particles&nbsp;/&nbsp;(cm<sup>2</sup>&nbsp;st&nbsp;MeV).
 </div>
 
 <script>
@@ -63,7 +74,10 @@
     let updating = false;
     let aceTraceIndex = null;
     let acePinned = false;
-  
+
+    const fluenceDiv = document.getElementById("fluencePlot");
+    let fluenceInitialized = false;
+
     async function updatePlot() {
 
         if (updating) return;
@@ -77,8 +91,20 @@
 
             if (!response.ok) throw new Error(response.status);
 
-            const data = await response.json();        
+            const data = await response.json();
             const ions = data.ions;
+            const fluence = data.p3_fluence;
+            const solar1_fluence = fluence.solar1.fluence;
+            const ace_fluence = fluence.ace.fluence;
+
+            document.getElementById("fluenceDisplay").innerHTML =
+                "<b>P3 2-hour fluence:</b><br>" +
+                `Solar-1 = ${
+                    solar1_fluence === null ? "unavailable" : solar1_fluence.toExponential(3)
+                } particles / (cm<sup>2</sup> sr MeV)<br>` +
+                `ACE = ${
+                    ace_fluence === null ? "unavailable" : ace_fluence.toExponential(3)
+                } particles / (cm<sup>2</sup> sr MeV)`;
 
             if (!initialized) {
 
@@ -114,7 +140,7 @@
                     hovertemplate: "%{y:.2e}<extra>ACE P3</extra>",
                     visible: false,
                     showlegend: false
-                });            
+                });
 
                 // Save the ACE trace index for subsequent updates
                 aceTraceIndex = traces.length - 1;
@@ -157,7 +183,7 @@
                         tickformat: "%j",
                         unifiedhovertitle: {
                             text: "%{x|%j %H:%M:%S UTC}"
-                        },                        
+                        },
                         range: [
                             data.time[0],
                             data.time.at(-1)
@@ -227,10 +253,10 @@
                         line: {
                             color: "black",
                             width: 2,
-                            dash: "solid"
+                            dash: "dash"
                         }
                     }],
-                
+
                     margin: {l: 110, r: 25, t: 110, b: 90},
 
                     hovermode: "x unified",
@@ -254,7 +280,7 @@
                     if (!acePinned) {
                         Plotly.restyle(plotDiv, {visible: false}, [aceTraceIndex]);
                     }
-                });            
+                });
 
                 // Click to toggle permanent ACE P3 display
                 plotDiv.addEventListener("click", () => {
@@ -308,11 +334,141 @@
 
             }
 
+            // Solar-1 P3 fluence history
+            const history = data.fluence_history;
+
+            if (!fluenceInitialized) {
+
+                const trace = {
+                    x: history.time,
+                    y: history.solar1,
+                    type: "scattergl",
+                    mode: "lines+markers",
+                    name: "Solar-1 P3 fluence",
+                    line: {
+                        color: "#2ca02c",
+                        width: 2
+                    },
+                    marker: {
+                        color: "#2ca02c",
+                        size: 4
+                    },
+                    hovertemplate:
+                        "%{y:.3e}<extra>Solar-1 P3 fluence</extra>"
+                };
+
+                const layout = {
+                    margin: {l: 110, r: 25, t: 50, b: 70},
+
+                    xaxis: {
+                        title: {
+                            text: "UTC (DOY)",
+                            font: {color: "black", size: 16}
+                        },
+                        tickfont: {size: 15, color: "black"},
+                        type: "date",
+                        tickformat: "%j",
+                        unifiedhovertitle: {
+                            text: "%{x|%j %H:%M:%S UTC}"
+                        },
+                        range: [
+                            data.time[0],
+                            data.time.at(-1)
+                        ],
+                        ticks: "inside",
+                        ticklen: 8,
+                        tickwidth: 1,
+                        tickcolor: "black",
+                        dtick: 86400000, // major ticks every 24 hours
+                        // Minor ticks every 6 hours, without labels
+                        minor: {
+                            dtick: 7200000,
+                            ticks: "inside",
+                            ticklen: 4,
+                            tickwidth: 1,
+                            tickcolor: "black",
+                        },
+                        autorange: false,
+                        showline: true,
+                        linecolor: "black",
+                        linewidth: 1,
+                        mirror: true,
+                        showgrid: false,
+                        automargin: true
+                    },
+
+                    yaxis: {
+                        title: {
+                            text: "P3 2-hour fluence / (cm<sup>2</sup> sr MeV)",
+                            font: {color: "black", size: 16}
+                        },
+                        tickfont: {size: 12, color: "black"},
+                        type: "log",
+                        range: [4, 9],
+                        autorange: false,
+                        dtick: 1,
+                        exponentformat: "power",
+                        showexponent: "all",
+                        showline: true,
+                        linecolor: "black",
+                        mirror: true,
+                        showgrid: true,
+                        griddash: "dot",
+                        gridcolor: "#999",
+                        automargin: true
+                    },
+
+                    shapes: [{
+                        type: "line",
+                        xref: "paper",
+                        x0: 0,
+                        x1: 1,
+                        yref: "y",
+                        y0: 3.6e8,
+                        y1: 3.6e8,
+                        line: {
+                            color: "black",
+                            width: 2,
+                            dash: "dash"
+                        }
+                    }],
+
+                    showlegend: false,
+                    hovermode: "x unified"
+                };
+
+                await Plotly.newPlot(fluenceDiv, [trace], layout, {
+                    responsive: true,
+                    modeBarButtonsToRemove: [
+                        "pan2d", "select2d", "lasso2d", "autoScale2d"
+                    ]
+                });
+
+                fluenceInitialized = true;
+
+            } else {
+
+                await Plotly.update(
+                    fluenceDiv,
+                    {
+                        x: [history.time],
+                        y: [history.solar1]
+                    },
+                    {
+                        "xaxis.range": [
+                            data.time[0],
+                            data.time.at(-1)
+                        ]
+                    },
+                    [0]
+                );
+            }
+
         } catch (error) {
             console.error("Solar-1 update failed:", error);
 
             document.getElementById("updateStatus").textContent =
-                "Data refresh failed: " + error.message;            
+                "Data refresh failed: " + error.message;
         } finally {
             updating = false;
         }
