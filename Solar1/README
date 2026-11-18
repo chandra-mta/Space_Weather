@@ -27,6 +27,11 @@ WORKFLOW
 - Crontab calls the job with flock that prevents multiple instances of a process
   from running at the same time by the means of a lock file in the /tmp directory,
   and with timeout that kills the process after a certain time (here 50 seconds).
+- If two-hour P3 fluence exceeds a limit, an email is sent to a specified address,
+  a local file with the alert message is saved in the local directory, a json
+  state file is updated with "alerted": True, and "last_alert_time". A cooldown
+  time for additional alerts is 24 hours. After this time, the P3 fluence alert
+  is rearmed ("alerted": False), the local file with the alert message is removed.
 
 SETUP
 ----------
@@ -41,22 +46,39 @@ will be created from scratch.
 MTA cronjob:
 
 * * * * * /usr/bin/flock -n /tmp/solar1.lock /usr/bin/timeout 50s ${ENV_FLIGHT}/bin/skare python ${SPACE_WEATHER}/Solar-1/solar1.py >> ${HOME}/Logs/solar1_log.cron 2>&1
+* * * * * /usr/bin/flock -n /tmp/solar1_alert.lock /usr/bin/timeout 50s ${ENV_FLIGHT}/bin/skare python ${SPACE_WEATHER}/Solar-1/solar1_alert.py >> ${HOME}/Logs/solar1_alert_log.cron 2>&1
 
 OUTPUT
 ------
 The following file(s) will appear (or will be updated) in SPACE_WEATHER/Solar-1:
 - proton_history.parquet
 - fluence_history.parquet
+- solar1-fluence-alert-state.json
+- solar1-fluence-alert-message.txt
 
 The following file(s) will appear in SPACE_WEATHER_WEB/Solar-1:
 - solar-1-protons.json
 
-Log file with execution info, warnings, and errors:
+Log file(s) with execution info, warnings, and errors:
 - /home/mta/Logs/solar1_log.cron
+- /home/mta/Logs/solar1_alert_log.cron
 
-Lock file will be placed in /tmp (managed with flock).
+Lock file(s) will be placed in /tmp (managed with flock).
 
 View: https://cxc.harvard.edu/mta/RADIATION/Solar-1/solar1.html
+
+
+ALERTS
+------
+Two-hour P3 fluence
+Flight threshold value = 3.8 x 10^8
+Test threshold value = 1.1 x 10^6
+Email sent (flight): sot_yellow_alert
+Email sent (testing): MS
+
+Files created:
+- solar1-fluence-alert-state.json
+- solar1-fluence-alert-message.txt
 
 TODO
 ----
@@ -64,4 +86,3 @@ TODO
   and fill values
 - No "test" or "flight" input parameters in solar1.py
 - Unify naming convention (solar1, Solar1, Solar-1)
-- Add alerting on 2-hour P3 fluence
