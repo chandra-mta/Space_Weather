@@ -11,7 +11,8 @@ import argparse
 from fluence import calculate_p3_fluence
 
 logging.basicConfig(
-    level=logging.INFO,
+    #level=logging.INFO,
+    level=logging.WARNING,
     format="%(asctime)s UTC [%(levelname)s] %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S"
 )
@@ -343,19 +344,30 @@ def update_fluence_history(fluence_result, dt_hours):
     """
 
     timestamp = pd.Timestamp(fluence_result["end_time"])
-    fluence = fluence_result["fluence"]
 
     if FLUENCE_PARQUET_FILE.exists():
         df = pd.read_parquet(FLUENCE_PARQUET_FILE)
     else:
         df = pd.DataFrame(
-            {"fluence": pd.Series(dtype=float)},
+            columns = [
+                "fluence",
+                "valid_samples",
+                "valid_percent",
+                "longest_gap_minutes",
+                "latest_valid_time"
+            ],
             index=pd.DatetimeIndex([], name="datetime", tz="UTC")
         )
 
     # Append only if this timestamp has not been recorded
     if timestamp not in df.index:
-        df.loc[timestamp, "fluence"] = fluence
+        df.loc[timestamp] = {
+            "fluence": fluence_result["fluence"],
+            "valid_samples": fluence_result["valid_samples"],
+            "valid_percent": fluence_result["valid_percent"],
+            "longest_gap_minutes": fluence_result["longest_gap_minutes"],
+            "latest_valid_time": fluence_result["latest_valid_time"]
+        }
 
     # Keep only the requested rolling history
     cutoff = timestamp - timedelta(hours=dt_hours)
