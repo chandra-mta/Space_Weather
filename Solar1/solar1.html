@@ -10,7 +10,7 @@
 <style>
     body { font-family: Arial, sans-serif; }
     #ionPlot { width: 100%; height: 70vh; min-height: 500px; }
-    #ionPlot .legend .traces .legendpoints {display: none;} 
+    #ionPlot .legend .traces .legendlines {display: none;}
 
     /* Color P1-P8 legend labels */
     #ionPlot .legend .traces:nth-child(1) .legendtext { fill: #1f77b4 !important; }
@@ -64,11 +64,12 @@
     Single-click again to restore a hidden trace.<br>
     Double-click again to restore all traces.<br>
     Click the "reset axes" icon (a "house" in the upper right corner) to revert to the original axes after a zoom.<br><br>
-    <b>The dashed black horizontal line</b> coresponds to ACE P3 flux that results in a 2-hour fluence of 3.6 x 10<sup>8</sup> particles&nbsp;/&nbsp;(cm<sup>2</sup>&nbsp;st&nbsp;MeV).
+    <b>The dashed black horizontal line</b> coresponds to ACE P3 flux that results in a two-hour fluence of 3.6 x 10<sup>8</sup> particles&nbsp;/&nbsp;(cm<sup>2</sup>&nbsp;st&nbsp;MeV).
 </div>
 
 <script>
 
+    const FLUENCE_LIMIT = 3.6e8;
     const plotDiv = document.getElementById("ionPlot");
     let initialized = false;
     let updating = false;
@@ -92,13 +93,20 @@
             if (!response.ok) throw new Error(response.status);
 
             const data = await response.json();
+            const xRange = [data.time[0], data.time.at(-1)];
             const ions = data.ions;
             const fluence = data.p3_fluence;
             const solar1_fluence = fluence.solar1.fluence;
             const ace_fluence = fluence.ace.fluence;
+            const traceIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8]; // Solar-1: 0-7, ACE P3: 8
+            const startDate = data.time[0] || "";
+            const startDateText =
+                "<b><i>Start Date: " +
+                startDate.replace("T", " ").replace("Z", " UTC") +
+                "</i></b>";
 
             document.getElementById("fluenceDisplay").innerHTML =
-                "<b>P3 2-hour fluence:</b><br>" +
+                "<b>Two-hour P3 fluence:</b><br>" +
                 `Solar-1 = ${
                     solar1_fluence === null ? "unavailable" : solar1_fluence.toExponential(3)
                 } particles / (cm<sup>2</sup> sr MeV)<br>` +
@@ -113,12 +121,12 @@
                     y: ions.flux[ch],
                     name: ch + ": " + ions.labels[i],
                     type: "scattergl",
-                    mode: "markers",
-                    marker: {
+                    mode: "lines",
+                    line: {
                         color: ions.colors[i],
-                        size: 3,
-                        opacity: 0.6
+                        width: 1.0,
                     },
+                    opacity: 0.5,
                     hoverinfo: ch === "p3" ? "all" : "skip",
                     hovertemplate: ch === "p3"
                         ? "%{y:.2e}<extra>Solar-1 P3</extra>"
@@ -131,11 +139,10 @@
                     y: data.ace.p3,
                     name: "ACE P3",
                     type: "scattergl",
-                    mode: "markers",
-                    marker: {
+                    mode: "lines",
+                    line: {
                         color: "black",
-                        size: 3,
-                        opacity: 0.6
+                        width: 1
                     },
                     hovertemplate: "%{y:.2e}<extra>ACE P3</extra>",
                     visible: false,
@@ -144,22 +151,18 @@
 
                 // Save the ACE trace index for subsequent updates
                 aceTraceIndex = traces.length - 1;
-                
-                const startDate = data.time[0] || "";
 
                 const layout = {
                     font: {size: 12},
 
                     annotations: [
                         {
-                            text: "<b><i>Start Date: " +
-                                  startDate.replace("T", " ").replace("Z", " UTC") +
-                                  "</i></b>",
+                            text: startDateText,
                             x: 1,
                             y: 1.08,
                             xref: "paper", yref: "paper",
                             xanchor: "right",
-                            font: {size: 18, color: "black"},
+                            font: {size: 16, color: "black"},
                             showarrow: false
                         },
                         {
@@ -168,7 +171,7 @@
                             y: 1.08,
                             xref: "paper", yref: "paper",
                             xanchor: "left",
-                            font: {size: 18, color: "black"},
+                            font: {size: 16, color: "black"},
                             showarrow: false
                         }
                     ],
@@ -248,8 +251,8 @@
                         x0: 0,
                         x1: 1,
                         yref: "y",
-                        y0: 50000,
-                        y1: 50000,
+                        y0: FLUENCE_LIMIT / (2 * 3600),
+                        y1: FLUENCE_LIMIT / (2 * 3600),
                         line: {
                             color: "black",
                             width: 2,
@@ -266,9 +269,6 @@
                     responsive: true,
                     modeBarButtonsToRemove: ["pan2d", "select2d", "lasso2d", "autoScale2d"]
                 });
-
-                document.getElementById("updateStatus").textContent =
-                    "Last successful refresh: " + new Date().toISOString();
 
                 // Display ACE P3 while hovering
                 plotDiv.addEventListener("mouseenter", () => {
@@ -299,15 +299,9 @@
                 const xValues = ions.channels.map(() => data.time);
                 const yValues = ions.channels.map(ch => ions.flux[ch]);
 
-                // Solar-1 trace indices: 0-7
-                const traceIndices = ions.channels.map((_, i) => i);
-
-                // Append ACE P3 (trace 8)
+                // Append ACE P3 data (trace 8)
                 xValues.push(data.ace.time);
                 yValues.push(data.ace.p3);
-                traceIndices.push(aceTraceIndex);
-
-                const startDate = data.time[0] || "";
 
                 // Update all traces and layout together
                 await Plotly.update(
@@ -317,21 +311,11 @@
                         y: yValues
                     },
                     {
-                        "xaxis.range": [
-                            data.time[0],
-                            data.time.at(-1)
-                        ],
-                        "annotations[0].text":
-                            "<b><i>Start Date: " +
-                            startDate.replace("T", " ").replace("Z", " UTC") +
-                            "</i></b>"
+                        "xaxis.range": xRange,
+                        "annotations[0].text": startDateText
                     },
                     traceIndices
                 );
-
-                document.getElementById("updateStatus").textContent =
-                    "Last successful refresh: " + new Date().toISOString();
-
             }
 
             // Solar-1 P3 fluence history
@@ -371,10 +355,7 @@
                         unifiedhovertitle: {
                             text: "%{x|%j %H:%M:%S UTC}"
                         },
-                        range: [
-                            data.time[0],
-                            data.time.at(-1)
-                        ],
+                        range: xRange,
                         ticks: "inside",
                         ticklen: 8,
                         tickwidth: 1,
@@ -399,12 +380,12 @@
 
                     yaxis: {
                         title: {
-                            text: "P3 2-hour fluence / (cm<sup>2</sup> sr MeV)",
+                            text: "Two-hour P3 fluence / (cm<sup>2</sup> sr MeV)",
                             font: {color: "black", size: 16}
                         },
                         tickfont: {size: 12, color: "black"},
                         type: "log",
-                        range: [4, 9],
+                        range: [4, 10],
                         autorange: false,
                         dtick: 1,
                         exponentformat: "power",
@@ -424,8 +405,8 @@
                         x0: 0,
                         x1: 1,
                         yref: "y",
-                        y0: 3.6e8,
-                        y1: 3.6e8,
+                        y0: FLUENCE_LIMIT,
+                        y1: FLUENCE_LIMIT,
                         line: {
                             color: "black",
                             width: 2,
@@ -455,14 +436,14 @@
                         y: [history.solar1]
                     },
                     {
-                        "xaxis.range": [
-                            data.time[0],
-                            data.time.at(-1)
-                        ]
+                        "xaxis.range": xRange
                     },
                     [0]
                 );
             }
+
+            document.getElementById("updateStatus").textContent =
+                "Last successful refresh: " + new Date().toISOString();
 
         } catch (error) {
             console.error("Solar-1 update failed:", error);
